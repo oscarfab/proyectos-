@@ -9,7 +9,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git ' https://github.com/oscarfab/proyectos-.git'
+                // Especificar la rama 'main' (en minúsculas) y el repositorio
+                git branch: 'main', url: 'https://github.com/oscarfab/proyectos-.git'
             }
         }
 
