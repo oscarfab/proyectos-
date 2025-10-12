@@ -9,21 +9,23 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Especificar la rama 'main' (en minúsculas) y el repositorio
                 git branch: 'main', url: 'https://github.com/oscarfab/proyectos-.git'
             }
         }
 
         stage('Build') {
             steps {
-                bat 'mvn clean package'
+                dir('SprintBootMailSender') { // Cambiar al directorio donde está el pom.xml
+                    bat 'mvn clean package'
+                }
             }
         }
 
         stage('Test') {
             steps {
-             dir('SprintBootMailSender') {
-                bat 'mvn test'
+                dir('SprintBootMailSender') { // Cambiar al directorio donde están las pruebas
+                    bat 'mvn test'
+                }
             }
         }
     }
