@@ -10,7 +10,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 // Especificar la rama 'main' (en minúsculas) y el repositorio
-                git branch: 'main', url: 'https://github.com/oscarfab/proyectos-/tree/main/SprintBootMailSender.git'
+                git branch: 'main', url: 'https://github.com/oscarfab/proyectos-.git'
             }
         }
 
