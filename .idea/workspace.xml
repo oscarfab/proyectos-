@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ddcae818-73e0-43c2-88b1-028f8e95933c" name="Changes" comment="" />
+    <list default="true" id="ddcae818-73e0-43c2-88b1-028f8e95933c" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/SprintBootMailSender/Jenkinsfile" beforeDir="false" afterPath="$PROJECT_DIR$/SprintBootMailSender/Jenkinsfile" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -92,7 +94,7 @@
       <workItem from="1759446823679" duration="3165000" />
       <workItem from="1759877981577" duration="612000" />
       <workItem from="1759882305277" duration="598000" />
-      <workItem from="1760144970909" duration="7318000" />
+      <workItem from="1760144970909" duration="7528000" />
     </task>
     <servers />
   </component>

@@ -33,7 +33,7 @@ pipeline {
     post {
         always {
             junit '**/target/surefire-reports/*.xml'
-            archiveArtifacts artifacts: 'target/*.jar'
+            archiveArtifacts artifacts: 'SprintBootMailSender/target/*.jar'  // Ajusta el patrón a la ruta correcta
         }
     }
 }
