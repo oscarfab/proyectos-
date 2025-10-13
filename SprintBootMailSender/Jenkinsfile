@@ -1,0 +1,39 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven'
+        jdk 'Java'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/oscarfab/proyectos-.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('SprintBootMailSender') { // Cambiar al directorio donde está el pom.xml
+                    bat 'mvn clean package'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('SprintBootMailSender') { // Cambiar al directorio donde están las pruebas
+                    bat 'mvn test'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            junit '**/target/surefire-reports/*.xml'
+            archiveArtifacts artifacts: 'SprintBootMailSender/target/*.jar'  // Ajusta el patrón a la ruta correcta
+        }
+    }
+}
