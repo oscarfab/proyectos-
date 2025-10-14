@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-crud
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: oscar
+      MYSQL_DATABASE: CRUD_DB
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    build: .
+    container_name: crud-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    restart: on-failure
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+volumes:
+  mysql_data:
