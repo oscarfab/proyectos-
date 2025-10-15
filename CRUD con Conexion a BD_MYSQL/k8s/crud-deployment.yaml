@@ -14,30 +14,16 @@ spec:
     spec:
       containers:
         - name: crud-app
-          image: crud-app:1.0  # ← tu imagen local
+          image: crud-app:1.0
           imagePullPolicy: Never
           ports:
             - containerPort: 8080
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "docker"
-          # Opcional: si quieres que espere a MySQL
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: crud-app
-spec:
-  selector:
-    app: crud-app
-  ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
-  type: LoadBalancer  # ← para acceder desde tu navegador

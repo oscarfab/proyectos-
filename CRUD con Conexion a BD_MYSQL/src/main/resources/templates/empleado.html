@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>CRUD Empleados</title>
+    <meta charset="UTF-8">
+    <style>
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        form { margin: 20px 0; }
+        input { margin: 5px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>CRUD de Empleados</h1>
+    
+    <form action="/agregar" method="post">
+        <input type="text" name="nombre" placeholder="Nombre" required>
+        <input type="number" name="edad" placeholder="Edad" required>
+        <input type="email" name="correoElectronico" placeholder="Email" required>
+        <input type="text" name="area" placeholder="Área" required>
+        <input type="number" name="sueldo" placeholder="Sueldo" step="0.01" required>
+        <button type="submit">Agregar Empleado</button>
+    </form>
+    
+    <h2>Lista de Empleados</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Edad</th>
+                <th>Email</th>
+                <th>Área</th>
+                <th>Sueldo</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="emp : ${empleados}">
+                <td th:text="${emp.id}"></td>
+                <td th:text="${emp.nombre}"></td>
+                <td th:text="${emp.edad}"></td>
+                <td th:text="${emp.correoElectronico}"></td>
+                <td th:text="${emp.area}"></td>
+                <td th:text="${emp.sueldo}"></td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
