@@ -1,23 +1,57 @@
 package com.crud.modelo;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
 @Entity
-@Table(name="Empleados")
+@Table(name = "empleados")
+@Schema(description = "Entidad que representa un empleado en el sistema")
 public class Empleado {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
-    @Column(name="nombre",nullable = false)
+    @Schema(description = "ID único del empleado (generado automáticamente)",
+            example = "1",
+            accessMode = Schema.AccessMode.READ_ONLY)
+    private Long id;
+
+    @NotBlank(message = "El nombre es obligatorio")
+    @Size(min = 2, max = 100, message = "El nombre debe tener entre 2 y 100 caracteres")
+    @Column(name = "nombre", nullable = false, length = 100)
+    @Schema(description = "Nombre completo del empleado",
+            example = "Juan Pérez García",
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private String nombre;
-    @Column(name="area")
+
+    @Size(max = 50, message = "El área no puede exceder 50 caracteres")
+    @Column(name = "area", length = 50)
+    @Schema(description = "Área o departamento del empleado",
+            example = "Desarrollo de Software")
     private String area;
-    @Column(name="edad")
+
+    @Min(value = 18, message = "La edad mínima es 18 años")
+    @Max(value = 100, message = "La edad máxima es 100 años")
+    @Column(name = "edad")
+    @Schema(description = "Edad del empleado",
+            example = "30",
+            minimum = "18",
+            maximum = "100")
     private Integer edad;
-    @Column(name="correo_electronico",nullable = true)
+
+    @Email(message = "El correo electrónico debe ser válido")
+    @Column(name = "correo_electronico", length = 100)
+    @Schema(description = "Correo electrónico corporativo",
+            example = "juan.perez@empresa.com",
+            format = "email")
     private String correo_electronico;
-    @Column(name="sueldo")
+
+    @DecimalMin(value = "0.0", message = "El sueldo no puede ser negativo")
+    @Column(name = "sueldo")
+    @Schema(description = "Sueldo mensual del empleado",
+            example = "50000.00",
+            minimum = "0")
     private Double sueldo;
 }
