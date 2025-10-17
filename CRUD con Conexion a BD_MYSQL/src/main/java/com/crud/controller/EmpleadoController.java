@@ -22,7 +22,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/empleados")
-@CrossOrigin(origins="*")
+@CrossOrigin(origins="*",methods = {RequestMethod.GET,RequestMethod.POST,RequestMethod.DELETE,RequestMethod.PUT})
 @Tag(name = "Gestión de Empleados",
         description = "API REST para operaciones CRUD de empleados")
 public class EmpleadoController {
