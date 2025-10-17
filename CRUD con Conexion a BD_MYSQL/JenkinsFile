@@ -11,8 +11,8 @@ pipeline {
     }
 
     tools {
-        maven 'Maven'  // Debe coincidir con el nombre en Jenkins
-        jdk 'JDK-21'   // Debe coincidir con el nombre en Jenkins
+       maven 'Maven'  // Debe coincidir con el nombre en Jenkins
+       jdk 'Java'   // Debe coincidir con el nombre en Jenkins
     }
 
     stages {
