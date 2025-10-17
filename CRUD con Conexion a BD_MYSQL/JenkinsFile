@@ -21,7 +21,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo '📥 Descargando código desde GitHub...'
+                echo ' Descargando código desde GitHub...'
                 checkout scmGit(
                     branches: [[name: "*/${GIT_BRANCH}"]],
                     userRemoteConfigs: [[url: "${GIT_REPO}"]]
@@ -31,11 +31,11 @@ pipeline {
 
         stage('Navigate to Project') {
             steps {
-                echo '📂 Verificando directorio del proyecto...'
+                echo ' Verificando directorio del proyecto...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'dir'
-                        echo "✅ Directorio actual: ${pwd()}"
+                        echo " Directorio actual: ${pwd()}"
                     }
                 }
             }
@@ -43,7 +43,7 @@ pipeline {
 
         stage('Clean') {
             steps {
-                echo '🧹 Limpiando proyecto...'
+                echo ' Limpiando proyecto...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn clean'
@@ -54,7 +54,7 @@ pipeline {
 
         stage('Compile') {
             steps {
-                echo '⚙️ Compilando proyecto...'
+                echo ' Compilando proyecto...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn compile'
@@ -65,7 +65,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                echo '🧪 Ejecutando tests...'
+                echo ' Ejecutando tests...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn test'
@@ -76,7 +76,7 @@ pipeline {
 
         stage('Package') {
             steps {
-                echo '📦 Empaquetando aplicación...'
+                echo ' Empaquetando aplicación...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn package -DskipTests'
@@ -87,7 +87,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo '🐳 Construyendo imagen Docker...'
+                echo ' Construyendo imagen Docker...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat "docker build -t ${DOCKER_IMAGE} ."
@@ -99,7 +99,7 @@ pipeline {
 
         stage('Stop Old Container') {
             steps {
-                echo '🛑 Deteniendo contenedor anterior (si existe)...'
+                echo ' Deteniendo contenedor anterior (si existe)...'
                 script {
                     dir("${PROJECT_PATH}") {
                         // Detener contenedor si existe
@@ -113,7 +113,7 @@ pipeline {
 
         stage('Run Docker Container') {
             steps {
-                echo '🚀 Iniciando contenedor Docker...'
+                echo ' Iniciando contenedor Docker...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat """
@@ -130,12 +130,12 @@ pipeline {
 
         stage('Verify Container') {
             steps {
-                echo '✅ Verificando contenedor...'
+                echo ' Verificando contenedor...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'docker ps -a'
                         bat "docker logs ${CONTAINER_NAME}"
-                        echo "🌐 Aplicación disponible en: http://localhost:${HOST_PORT}"
+                        echo " Aplicación disponible en: http://localhost:${HOST_PORT}"
                     }
                 }
             }
@@ -143,7 +143,7 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                echo '🏥 Verificando salud de la aplicación...'
+                echo ' Verificando salud de la aplicación...'
                 script {
                     // Esperar 10 segundos para que la app inicie
                     sleep(10)
@@ -155,9 +155,9 @@ pipeline {
                     ).trim()
 
                     if (containerStatus == "true") {
-                        echo "✅ Contenedor está corriendo correctamente"
+                        echo " Contenedor está corriendo correctamente"
                     } else {
-                        error "❌ El contenedor no está corriendo"
+                        error " El contenedor no está corriendo"
                     }
                 }
             }
@@ -166,13 +166,13 @@ pipeline {
 
     post {
         success {
-            echo '✅ ¡Build y despliegue completados exitosamente!'
-            echo "🐳 Imagen Docker: ${DOCKER_IMAGE}"
-            echo "📦 Contenedor: ${CONTAINER_NAME}"
-            echo "🌐 URL: http://localhost:${HOST_PORT}"
-            echo "📌 Build Number: ${BUILD_NUMBER}"
+            echo ' ¡Build y despliegue completados exitosamente!'
+            echo " Imagen Docker: ${DOCKER_IMAGE}"
+            echo " Contenedor: ${CONTAINER_NAME}"
+            echo " URL: http://localhost:${HOST_PORT}"
+            echo " Build Number: ${BUILD_NUMBER}"
             echo ''
-            echo '📋 Comandos útiles:'
+            echo ' Comandos útiles:'
             echo "   Ver logs:     docker logs ${CONTAINER_NAME}"
             echo "   Ver logs -f:  docker logs -f ${CONTAINER_NAME}"
             echo "   Detener:      docker stop ${CONTAINER_NAME}"
@@ -180,8 +180,8 @@ pipeline {
             echo "   Eliminar:     docker rm -f ${CONTAINER_NAME}"
         }
         failure {
-            echo '❌ Build falló. Revisa los logs para más detalles.'
-            echo '🔍 Verifica:'
+            echo ' Build falló. Revisa los logs para más detalles.'
+            echo ' Verifica:'
             echo '   1. Docker Desktop está corriendo'
             echo '   2. No hay conflictos de puertos'
             echo '   3. El archivo JAR se generó correctamente'
