@@ -9,6 +9,7 @@ pipeline {
         GIT_BRANCH = 'main'
         PROJECT_PATH = 'CRUD con Conexion a BD_MYSQL'
         CONTAINER_NAME = 'crud-mysql-container'
+        MYSQL_CONTAINER = 'mysql-jenkins'
         APP_PORT = '8080'
         HOST_PORT = '8081'
     }
@@ -21,7 +22,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo '📥 Descargando código desde GitHub...'
+                echo 'Descargando código desde GitHub...'
                 checkout scmGit(
                     branches: [[name: "*/${GIT_BRANCH}"]],
                     userRemoteConfigs: [[url: "${GIT_REPO}"]]
@@ -31,11 +32,11 @@ pipeline {
 
         stage('Navigate to Project') {
             steps {
-                echo '📂 Verificando directorio del proyecto...'
+                echo 'Verificando directorio del proyecto...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'dir'
-                        echo "✅ Directorio actual: ${pwd()}"
+                        echo "Directorio actual: ${pwd()}"
                     }
                 }
             }
@@ -43,7 +44,7 @@ pipeline {
 
         stage('Clean') {
             steps {
-                echo '🧹 Limpiando proyecto...'
+                echo 'Limpiando proyecto...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn clean'
@@ -54,7 +55,7 @@ pipeline {
 
         stage('Compile') {
             steps {
-                echo '⚙️ Compilando proyecto...'
+                echo 'Compilando proyecto...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn compile'
@@ -65,7 +66,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                echo '🧪 Ejecutando tests...'
+                echo 'Ejecutando tests...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn test'
@@ -76,7 +77,7 @@ pipeline {
 
         stage('Package') {
             steps {
-                echo '📦 Empaquetando aplicación...'
+                echo 'Empaquetando aplicación...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn package -DskipTests'
@@ -87,7 +88,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo '🐳 Construyendo imagen Docker...'
+                echo 'Construyendo imagen Docker...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat "docker build -t ${DOCKER_IMAGE} ."
@@ -97,32 +98,57 @@ pipeline {
             }
         }
 
-        stage('Stop Old Container') {
+        stage('Stop Old Containers') {
             steps {
-                echo '🛑 Deteniendo contenedor anterior (si existe)...'
+                echo 'Deteniendo contenedores anteriores...'
                 script {
                     dir("${PROJECT_PATH}") {
-                        // Detener contenedor si existe
                         bat(script: "docker stop ${CONTAINER_NAME}", returnStatus: true)
-                        // Eliminar contenedor si existe
                         bat(script: "docker rm ${CONTAINER_NAME}", returnStatus: true)
+                        bat(script: "docker stop ${MYSQL_CONTAINER}", returnStatus: true)
+                        bat(script: "docker rm ${MYSQL_CONTAINER}", returnStatus: true)
                     }
                 }
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Run MySQL Container') {
             steps {
-                echo '🚀 Iniciando contenedor Docker...'
+                echo 'Iniciando contenedor MySQL...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat """
+                            docker run -d ^
+                            --name ${MYSQL_CONTAINER} ^
+                            -e MYSQL_ROOT_PASSWORD=oscar ^
+                            -e MYSQL_DATABASE=CRUD_DB ^
+                            -p 3306:3306 ^
+                            mysql:8
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Wait for MySQL') {
+            steps {
+                echo 'Esperando a que MySQL inicie...'
+                sleep(15)
+            }
+        }
+
+        stage('Run App Container') {
+            steps {
+                echo 'Iniciando contenedor de la aplicación...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat """
                             docker run -d ^
                             --name ${CONTAINER_NAME} ^
                             -p ${HOST_PORT}:${APP_PORT} ^
-                            -e MYSQL_HOST=host.docker.internal ^
-                            -e MYSQL_USER=root ^
-                            -e MYSQL_PASSWORD=oscar ^
+                            -e SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/CRUD_DB ^
+                            -e SPRING_DATASOURCE_USERNAME=root ^
+                            -e SPRING_DATASOURCE_PASSWORD=oscar ^
                             ${APP_NAME}:latest
                         """
                     }
@@ -130,61 +156,33 @@ pipeline {
             }
         }
 
-        stage('Verify Container') {
-            steps {
-                echo '✅ Verificando contenedor...'
-                script {
-                    dir("${PROJECT_PATH}") {
-                        bat 'docker ps -a'
-                        echo '📋 Mostrando logs completos del contenedor:'
-                        bat "docker logs ${CONTAINER_NAME} || echo No hay logs disponibles aún"
-                        echo "🌐 Aplicación debería estar disponible en: http://localhost:${HOST_PORT}"
-                        echo "🌐 Swagger UI: http://localhost:${HOST_PORT}/swagger-ui.html"
-                    }
-                }
-            }
-        }
-
         stage('Health Check') {
             steps {
-                echo '🏥 Verificando salud de la aplicación...'
+                echo 'Verificando salud de la aplicación...'
                 script {
-                    // Esperar 15 segundos para que la app inicie
-                    echo '⏳ Esperando 20 segundos para que la aplicación inicie...'
-                    sleep(20)
+                    dir("${PROJECT_PATH}") {
+                        echo 'Esperando 30 segundos para que la aplicación inicie...'
+                        sleep(30)
 
-                    echo '📋 Logs después de esperar:'
-                    bat "docker logs ${CONTAINER_NAME}"
+                        echo 'Logs de MySQL:'
+                        bat "docker logs ${MYSQL_CONTAINER}"
 
-                    // Verificar que el contenedor esté corriendo
-                    def containerRunning = bat(
-                        script: "docker ps --filter name=${CONTAINER_NAME} --format \"{{.Names}}\"",
-                        returnStdout: true
-                    ).trim()
+                        echo ''
+                        echo 'Logs de la aplicación:'
+                        bat "docker logs ${CONTAINER_NAME}"
 
-                    if (containerRunning.contains(CONTAINER_NAME)) {
-                        echo "✅ Contenedor está corriendo"
-
-                        // Verificar estado del contenedor
-                        def containerStatus = bat(
-                            script: "docker inspect ${CONTAINER_NAME} --format=\"{{.State.Status}}\"",
+                        def containerRunning = bat(
+                            script: "docker ps --filter name=${CONTAINER_NAME} --format \"{{.Names}}\"",
                             returnStdout: true
                         ).trim()
 
-                        echo "📊 Estado del contenedor: ${containerStatus}"
-
-                        if (containerStatus.contains("running")) {
-                            echo "✅ ¡Aplicación desplegada exitosamente!"
+                        if (containerRunning.contains(CONTAINER_NAME)) {
+                            echo 'Contenedor está corriendo'
+                            echo "Aplicación disponible en: http://localhost:${HOST_PORT}/swagger-ui.html"
                         } else {
-                            echo "⚠️ Contenedor existe pero no está en estado 'running'"
-                            echo "📋 Logs finales:"
+                            echo 'ERROR: El contenedor no está corriendo'
                             bat "docker logs ${CONTAINER_NAME}"
                         }
-                    } else {
-                        echo "⚠️ El contenedor no está corriendo"
-                        echo "📋 Logs del contenedor:"
-                        bat "docker logs ${CONTAINER_NAME}"
-                        echo "⚠️ Warning: Contenedor no está activo, pero el build continúa"
                     }
                 }
             }
@@ -193,28 +191,22 @@ pipeline {
 
     post {
         success {
-            echo '✅ ¡Build y despliegue completados exitosamente!'
-            echo "🐳 Imagen Docker: ${DOCKER_IMAGE}"
-            echo "📦 Contenedor: ${CONTAINER_NAME}"
-            echo "🌐 URL: http://localhost:${HOST_PORT}"
-            echo "📌 Build Number: ${BUILD_NUMBER}"
-            echo ''
-            echo '📋 Comandos útiles:'
-            echo "   Ver logs:     docker logs ${CONTAINER_NAME}"
-            echo "   Ver logs -f:  docker logs -f ${CONTAINER_NAME}"
-            echo "   Detener:      docker stop ${CONTAINER_NAME}"
-            echo "   Reiniciar:    docker restart ${CONTAINER_NAME}"
-            echo "   Eliminar:     docker rm -f ${CONTAINER_NAME}"
-        }
-        failure {
-            echo '❌ Build falló. Revisa los logs para más detalles.'
-            echo '🔍 Verifica:'
-            echo '   1. Docker Desktop está corriendo'
-            echo '   2. No hay conflictos de puertos'
-            echo '   3. El archivo JAR se generó correctamente'
+            echo '========================================='
+            echo 'Build y despliegue completados!'
+            echo '========================================='
+            echo "Imagen: ${DOCKER_IMAGE}"
+            echo "App Container: ${CONTAINER_NAME}"
+            echo "MySQL Container: ${MYSQL_CONTAINER}"
+            echo ""
+            echo "URL Swagger: http://localhost:${HOST_PORT}/swagger-ui.html"
+            echo ""
+            echo "Comandos:"
+            echo "  docker logs ${CONTAINER_NAME}"
+            echo "  docker logs ${MYSQL_CONTAINER}"
+            echo "  docker ps"
         }
         always {
-            echo '🧹 Limpiando workspace...'
+            echo 'Limpiando workspace...'
             cleanWs()
         }
     }
