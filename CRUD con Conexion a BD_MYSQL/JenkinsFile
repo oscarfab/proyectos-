@@ -1,0 +1,149 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME = 'crud-app'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_IMAGE = "${APP_NAME}:${IMAGE_TAG}"
+        GIT_REPO = 'https://github.com/oscarfab/proyectos-.git'
+        GIT_BRANCH = 'main'
+        PROJECT_PATH = 'CRUD con Conexion a BD_MYSQL'
+    }
+
+    tools {
+        maven 'Maven'  // Debe coincidir con el nombre en Jenkins
+        jdk 'JDK-21'   // Debe coincidir con el nombre en Jenkins
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '📥 Descargando código desde GitHub...'
+                checkout scmGit(
+                    branches: [[name: "*/${GIT_BRANCH}"]],
+                    userRemoteConfigs: [[url: "${GIT_REPO}"]]
+                )
+            }
+        }
+
+        stage('Navigate to Project') {
+            steps {
+                echo ' Navegando al directorio del proyecto...'
+                script {
+                    // Cambiar al directorio del proyecto
+                    dir("${PROJECT_PATH}") {
+                        bat 'dir'
+                        echo " Directorio actual: ${pwd()}"
+                    }
+                }
+            }
+        }
+
+        stage('Clean') {
+            steps {
+                echo ' Limpiando proyecto...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'mvn clean'
+                    }
+                }
+            }
+        }
+
+        stage('Compile') {
+            steps {
+                echo ' Compilando proyecto...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'mvn compile'
+                    }
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo ' Ejecutando tests...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'mvn test'
+                    }
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                echo ' Empaquetando aplicación...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'mvn package -DskipTests'
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo ' Construyendo imagen Docker...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat "docker build -t ${DOCKER_IMAGE} ."
+                        bat "docker tag ${DOCKER_IMAGE} ${APP_NAME}:latest"
+                    }
+                }
+            }
+        }
+
+        stage('Load to Minikube') {
+            steps {
+                echo ' Cargando imagen en Minikube...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat "minikube image load ${DOCKER_IMAGE}"
+                        bat "minikube image load ${APP_NAME}:latest"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo ' Desplegando en Kubernetes...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'kubectl rollout restart deployment/crud-app'
+                        bat 'kubectl rollout status deployment/crud-app --timeout=3m'
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                echo ' Verificando despliegue...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'kubectl get pods -l app=crud-app'
+                        bat 'kubectl get services crud-app'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo ' ¡Build y despliegue completados exitosamente!'
+            echo " Imagen Docker: ${DOCKER_IMAGE}"
+            echo " Build Number: ${BUILD_NUMBER}"
+        }
+        failure {
+            echo ' Build falló. Revisa los logs para más detalles.'
+        }
+        always {
+            echo ' Limpiando workspace...'
+            cleanWs()
+        }
+    }
+}
