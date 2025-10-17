@@ -8,11 +8,14 @@ pipeline {
         GIT_REPO = 'https://github.com/oscarfab/proyectos-.git'
         GIT_BRANCH = 'main'
         PROJECT_PATH = 'CRUD con Conexion a BD_MYSQL'
+        CONTAINER_NAME = 'crud-mysql-container'
+        APP_PORT = '8080'
+        HOST_PORT = '8081'
     }
 
     tools {
-       maven 'Maven'  // Debe coincidir con el nombre en Jenkins
-       jdk 'Java'   // Debe coincidir con el nombre en Jenkins
+        maven 'Maven'
+        jdk 'Java'
     }
 
     stages {
@@ -28,12 +31,11 @@ pipeline {
 
         stage('Navigate to Project') {
             steps {
-                echo ' Navegando al directorio del proyecto...'
+                echo '📂 Verificando directorio del proyecto...'
                 script {
-                    // Cambiar al directorio del proyecto
                     dir("${PROJECT_PATH}") {
                         bat 'dir'
-                        echo " Directorio actual: ${pwd()}"
+                        echo "✅ Directorio actual: ${pwd()}"
                     }
                 }
             }
@@ -41,7 +43,7 @@ pipeline {
 
         stage('Clean') {
             steps {
-                echo ' Limpiando proyecto...'
+                echo '🧹 Limpiando proyecto...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn clean'
@@ -52,7 +54,7 @@ pipeline {
 
         stage('Compile') {
             steps {
-                echo ' Compilando proyecto...'
+                echo '⚙️ Compilando proyecto...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn compile'
@@ -63,7 +65,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                echo ' Ejecutando tests...'
+                echo '🧪 Ejecutando tests...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn test'
@@ -74,7 +76,7 @@ pipeline {
 
         stage('Package') {
             steps {
-                echo ' Empaquetando aplicación...'
+                echo '📦 Empaquetando aplicación...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat 'mvn package -DskipTests'
@@ -85,7 +87,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo ' Construyendo imagen Docker...'
+                echo '🐳 Construyendo imagen Docker...'
                 script {
                     dir("${PROJECT_PATH}") {
                         bat "docker build -t ${DOCKER_IMAGE} ."
@@ -95,37 +97,67 @@ pipeline {
             }
         }
 
-        stage('Load to Minikube') {
+        stage('Stop Old Container') {
             steps {
-                echo ' Cargando imagen en Minikube...'
+                echo '🛑 Deteniendo contenedor anterior (si existe)...'
                 script {
                     dir("${PROJECT_PATH}") {
-                        bat "minikube image load ${DOCKER_IMAGE}"
-                        bat "minikube image load ${APP_NAME}:latest"
+                        // Detener contenedor si existe
+                        bat(script: "docker stop ${CONTAINER_NAME}", returnStatus: true)
+                        // Eliminar contenedor si existe
+                        bat(script: "docker rm ${CONTAINER_NAME}", returnStatus: true)
                     }
                 }
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Run Docker Container') {
             steps {
-                echo ' Desplegando en Kubernetes...'
+                echo '🚀 Iniciando contenedor Docker...'
                 script {
                     dir("${PROJECT_PATH}") {
-                        bat 'kubectl rollout restart deployment/crud-app'
-                        bat 'kubectl rollout status deployment/crud-app --timeout=3m'
+                        bat """
+                            docker run -d ^
+                            --name ${CONTAINER_NAME} ^
+                            -p ${HOST_PORT}:${APP_PORT} ^
+                            --network bridge ^
+                            ${APP_NAME}:latest
+                        """
                     }
                 }
             }
         }
 
-        stage('Verify Deployment') {
+        stage('Verify Container') {
             steps {
-                echo ' Verificando despliegue...'
+                echo '✅ Verificando contenedor...'
                 script {
                     dir("${PROJECT_PATH}") {
-                        bat 'kubectl get pods -l app=crud-app'
-                        bat 'kubectl get services crud-app'
+                        bat 'docker ps -a'
+                        bat "docker logs ${CONTAINER_NAME}"
+                        echo "🌐 Aplicación disponible en: http://localhost:${HOST_PORT}"
+                    }
+                }
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                echo '🏥 Verificando salud de la aplicación...'
+                script {
+                    // Esperar 10 segundos para que la app inicie
+                    sleep(10)
+
+                    // Verificar que el contenedor esté corriendo
+                    def containerStatus = bat(
+                        script: "docker inspect -f {{.State.Running}} ${CONTAINER_NAME}",
+                        returnStdout: true
+                    ).trim()
+
+                    if (containerStatus == "true") {
+                        echo "✅ Contenedor está corriendo correctamente"
+                    } else {
+                        error "❌ El contenedor no está corriendo"
                     }
                 }
             }
@@ -134,15 +166,28 @@ pipeline {
 
     post {
         success {
-            echo ' ¡Build y despliegue completados exitosamente!'
-            echo " Imagen Docker: ${DOCKER_IMAGE}"
-            echo " Build Number: ${BUILD_NUMBER}"
+            echo '✅ ¡Build y despliegue completados exitosamente!'
+            echo "🐳 Imagen Docker: ${DOCKER_IMAGE}"
+            echo "📦 Contenedor: ${CONTAINER_NAME}"
+            echo "🌐 URL: http://localhost:${HOST_PORT}"
+            echo "📌 Build Number: ${BUILD_NUMBER}"
+            echo ''
+            echo '📋 Comandos útiles:'
+            echo "   Ver logs:     docker logs ${CONTAINER_NAME}"
+            echo "   Ver logs -f:  docker logs -f ${CONTAINER_NAME}"
+            echo "   Detener:      docker stop ${CONTAINER_NAME}"
+            echo "   Reiniciar:    docker restart ${CONTAINER_NAME}"
+            echo "   Eliminar:     docker rm -f ${CONTAINER_NAME}"
         }
         failure {
-            echo ' Build falló. Revisa los logs para más detalles.'
+            echo '❌ Build falló. Revisa los logs para más detalles.'
+            echo '🔍 Verifica:'
+            echo '   1. Docker Desktop está corriendo'
+            echo '   2. No hay conflictos de puertos'
+            echo '   3. El archivo JAR se generó correctamente'
         }
         always {
-            echo ' Limpiando workspace...'
+            echo '🧹 Limpiando workspace...'
             cleanWs()
         }
     }
