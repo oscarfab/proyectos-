@@ -1,0 +1,211 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME = 'crud-app'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_IMAGE = "${APP_NAME}:${IMAGE_TAG}"
+        GIT_REPO = 'https://github.com/oscarfab/proyectos-.git'
+        GIT_BRANCH = 'main'
+        PROJECT_PATH = 'CRUD con Conexion a BD_MYSQL'
+        CONTAINER_NAME = 'crud-mysql-container'
+        MYSQL_CONTAINER = 'mysql-jenkins'
+        APP_PORT = '8080'
+        HOST_PORT = '8081'
+    }
+
+    tools {
+        maven 'Maven'
+        jdk 'Java'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Descargando código desde GitHub...'
+                checkout scmGit(
+                    branches: [[name: "*/${GIT_BRANCH}"]],
+                    userRemoteConfigs: [[url: "${GIT_REPO}"]]
+                )
+            }
+        }
+
+        stage('Navigate to Project') {
+            steps {
+                echo 'Verificando directorio del proyecto...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'dir'
+                        echo "Directorio actual: ${pwd()}"
+                    }
+                }
+            }
+        }
+
+        stage('Clean') {
+            steps {
+                echo 'Limpiando proyecto...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'mvn clean'
+                    }
+                }
+            }
+        }
+
+        stage('Compile') {
+            steps {
+                echo 'Compilando proyecto...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'mvn compile'
+                    }
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo 'Ejecutando tests...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'mvn test'
+                    }
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                echo 'Empaquetando aplicación...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat 'mvn package -DskipTests'
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo 'Construyendo imagen Docker...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        bat "docker build -t ${DOCKER_IMAGE} ."
+                        bat "docker tag ${DOCKER_IMAGE} ${APP_NAME}:latest"
+                    }
+                }
+            }
+        }
+
+
+        stage('Health Check') {
+            steps {
+                echo 'Verificando salud de la aplicación...'
+                script {
+                    dir("${PROJECT_PATH}") {
+                        echo 'Esperando 30 segundos para que la aplicación inicie...'
+                        sleep(30)
+
+                        echo 'Logs de MySQL:'
+                        bat "docker logs ${MYSQL_CONTAINER}"
+
+                        echo ''
+                        echo 'Logs de la aplicación:'
+                        bat "docker logs ${CONTAINER_NAME}"
+
+                        def containerRunning = bat(
+                            script: "docker ps --filter name=${CONTAINER_NAME} --format \"{{.Names}}\"",
+                            returnStdout: true
+                        ).trim()
+
+                        if (containerRunning.contains(CONTAINER_NAME)) {
+                            echo 'Contenedor está corriendo'
+                            echo "Aplicación disponible en: http://localhost:${HOST_PORT}/swagger-ui.html"
+                        } else {
+                            echo 'ERROR: El contenedor no está corriendo'
+                            bat "docker logs ${CONTAINER_NAME}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    stage('Stop Old Containers') {
+        steps {
+            echo '🛑 Deteniendo contenedores anteriores...'
+            script {
+                dir("${PROJECT_PATH}") {
+                    bat(script: "docker stop crud-oracle-container", returnStatus: true)
+                    bat(script: "docker rm crud-oracle-container", returnStatus: true)
+                    bat(script: "docker stop oracle-jenkins", returnStatus: true)
+                    bat(script: "docker rm oracle-jenkins", returnStatus: true)
+                }
+            }
+        }
+    }
+
+    stage('Run Oracle Container') {
+        steps {
+            echo '🔶 Iniciando contenedor Oracle...'
+            script {
+                dir("${PROJECT_PATH}") {
+                    bat """
+                        docker run -d ^
+                        --name oracle-jenkins ^
+                        -p 1521:1521 ^
+                        -e ORACLE_PASSWORD=oracle ^
+                        gvenzl/oracle-xe:21-slim
+                    """
+                }
+            }
+        }
+    }
+
+    stage('Wait for Oracle') {
+        steps {
+            echo '⏳ Esperando a que Oracle inicie (60 segundos)...'
+            sleep(60)  // Oracle tarda más en iniciar
+        }
+    }
+
+    stage('Run App Container') {
+        steps {
+            echo '🚀 Iniciando contenedor de la aplicación...'
+            script {
+                dir("${PROJECT_PATH}") {
+                    bat """
+                        docker run -d ^
+                        --name crud-oracle-container ^
+                        -p 8081:8080 ^
+                        -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@host.docker.internal:1521:XE ^
+                        -e SPRING_DATASOURCE_USERNAME=system ^
+                        -e SPRING_DATASOURCE_PASSWORD=oracle ^
+                        ${APP_NAME}:latest
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '========================================='
+            echo 'Build y despliegue completados!'
+            echo '========================================='
+            echo "Imagen: ${DOCKER_IMAGE}"
+            echo "App Container: ${CONTAINER_NAME}"
+            echo "MySQL Container: ${MYSQL_CONTAINER}"
+            echo ""
+            echo "URL Swagger: http://localhost:${HOST_PORT}/swagger-ui.html"
+            echo ""
+            echo "Comandos:"
+            echo "  docker logs ${CONTAINER_NAME}"
+            echo "  docker logs ${MYSQL_CONTAINER}"
+            echo "  docker ps"
+        }
+        always {
+            echo 'Limpiando workspace...'
+            cleanWs()
+        }
+    }
