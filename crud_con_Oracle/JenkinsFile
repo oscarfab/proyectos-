@@ -11,7 +11,7 @@ pipeline {
         CONTAINER_NAME = 'crud-oracle-container'
         ORACLE_CONTAINER = 'oracle-jenkins'
         APP_PORT = '8088'
-        HOST_PORT = '8089'
+        HOST_PORT = '8088'
     }
 
     tools {
