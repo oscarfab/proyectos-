@@ -1,4 +1,4 @@
-package modelo;
+package crudconconexionOracle.com.example.crud_con_Oracle.modelo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;

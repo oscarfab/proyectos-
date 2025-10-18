@@ -1,10 +1,10 @@
-package service;
+package crudconconexionOracle.com.example.crud_con_Oracle.service;
 
 
-import modelo.Empleado;
+import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import repository.EmpleadoRepository;
+import crudconconexionOracle.com.example.crud_con_Oracle.repository.EmpleadoRepository;
 
 import java.util.List;
 import java.util.Optional;

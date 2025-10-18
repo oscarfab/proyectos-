@@ -1,4 +1,4 @@
-package controller;
+package crudconconexionOracle.com.example.crud_con_Oracle.controller;
 
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,12 +9,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import modelo.Empleado;
+import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import service.EmpleadoService;
+import crudconconexionOracle.com.example.crud_con_Oracle.service.EmpleadoService;
 
 import java.util.List;
 import java.util.Optional;

@@ -1,4 +1,4 @@
-package swagger;
+package crudconconexionOracle.com.example.crud_con_Oracle.swagger;
 
 
 import io.swagger.v3.oas.models.ExternalDocumentation;

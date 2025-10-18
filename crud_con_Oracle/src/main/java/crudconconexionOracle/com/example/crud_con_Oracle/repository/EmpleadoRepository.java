@@ -1,7 +1,7 @@
-package repository;
+package crudconconexionOracle.com.example.crud_con_Oracle.repository;
 
 import jakarta.persistence.metamodel.SingularAttribute;
-import modelo.Empleado;
+import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
 import org.springframework.data.jpa.domain.AbstractPersistable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
