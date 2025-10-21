@@ -2,6 +2,7 @@ package crudconconexionOracle.com.example.crud_con_Oracle.service;
 
 
 import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
+import manejoExepciones.EmpleadoNoEncontrado;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import crudconconexionOracle.com.example.crud_con_Oracle.repository.EmpleadoRepository;
@@ -47,13 +48,13 @@ public class EmpleadoService {
         }
 
         // Si el empleado no existe, lanzar una excepción
-        throw new RuntimeException("Empleado no encontrado con ID: " + id);
+        throw new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id);
     }
     public void eliminar(Long id) {
         if (empleadoRepository.existsById(Math.toIntExact(id))) {
             empleadoRepository.deleteById(Math.toIntExact(id));
         } else {
-            throw new RuntimeException("Empleado no encontrado con ID: " + id);
+            throw new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id);
         }
     }
 }

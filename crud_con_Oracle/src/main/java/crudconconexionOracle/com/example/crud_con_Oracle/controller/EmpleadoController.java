@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
+import manejoExepciones.EmpleadoNoEncontrado;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -83,31 +84,12 @@ public class EmpleadoController {
     }
 
     @GetMapping("/{id}")
-    @Operation(
-            summary = "Obtener empleado por ID",
-            description = "Busca y retorna un empleado específico por su ID único"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Empleado encontrado",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = Empleado.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Empleado no encontrado",
-                    content = @Content
-            )
-    })
-    public ResponseEntity<Empleado> getEmpleadoById(
-            @Parameter(description = "ID del empleado a buscar", example = "1")
-            @PathVariable Long id) {
+    public ResponseEntity<Empleado> getEmpleadoById(@PathVariable Long id) {
         Optional<Empleado> empleado = service.obtener(id);
-        return empleado.map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        if (empleado.isEmpty()) {
+            throw new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id);
+        }
+        return ResponseEntity.ok(empleado.get());
     }
 
     @PutMapping("/{id}")
