@@ -36,9 +36,9 @@ public class Empleado {
     @Column(name = "EDAD")
     @Schema(description = "Edad del empleado", example = "30", minimum = "18", maximum = "100")
     private Integer edad;
-
+    @NotBlank(message = "el correo debe ser vallido")
     @Email(message = "El correo electrónico debe ser válido")
-    @Column(name = "CORREO_ELECTRONICO", length = 100)
+    @Column(name = "CORREO_ELECTRONICO",nullable = false, length = 100)
     @Schema(description = "Correo electrónico corporativo", example = "juan.perez@empresa.com", format = "email")
     private String correo_electronico;
 

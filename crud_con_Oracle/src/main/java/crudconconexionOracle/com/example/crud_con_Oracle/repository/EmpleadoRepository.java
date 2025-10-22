@@ -12,7 +12,6 @@ import java.io.Serializable;
 import java.util.Optional;
 @Repository
 public interface EmpleadoRepository extends JpaRepository<Empleado, Long> {
-    // En EmpleadoRepository.java
-    @Query("SELECT CASE WHEN COUNT(e) > 0 THEN true ELSE false END FROM Empleado e WHERE e.correo_electronico = :correo")
+    @Query("SELECT EXISTS (SELECT 1 FROM Empleado e WHERE e.correo_electronico = :correo)")
     boolean existsByCorreo_electronico(@Param("correo") String correo);
 }
