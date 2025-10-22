@@ -6,6 +6,7 @@ import manejoExepciones.DatabaseException;
 import manejoExepciones.DuplicateMailException;
 import manejoExepciones.EmpleadoNoEncontrado;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import crudconconexionOracle.com.example.crud_con_Oracle.repository.EmpleadoRepository;
 
@@ -24,6 +25,8 @@ public class EmpleadoService {
         }
         try {
             return empleadoRepository.save(empleado);
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateMailException("Ya existe un empleado con el correo: " + empleado.getCorreo_electronico());
         } catch (Exception e) {
             throw new DatabaseException("Error al guardar el empleado en la base de datos", e);
         }
