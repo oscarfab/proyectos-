@@ -85,7 +85,7 @@ public class EmpleadoController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Empleado> getEmpleadoById(@PathVariable Long id) {
-        Optional<Empleado> empleado = service.obtener(id);
+        Optional<Empleado> empleado = Optional.ofNullable(service.obtener(id));
         if (empleado.isEmpty()) {
             throw new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id);
         }

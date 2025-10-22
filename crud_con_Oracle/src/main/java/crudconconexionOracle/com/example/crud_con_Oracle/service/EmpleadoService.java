@@ -12,49 +12,45 @@ import java.util.Optional;
 
 @Service
 public class EmpleadoService {
+
     @Autowired
     private EmpleadoRepository empleadoRepository;
 
-    //CREAMOS EL NUEVO EMPLEADO
+    // Crear nuevo empleado
     public Empleado create(Empleado empleado) {
         return empleadoRepository.save(empleado);
     }
 
-    //Obtener todos los empleados
+    // Obtener todos los empleados
     public List<Empleado> obtenerTodos() {
         return empleadoRepository.findAll();
     }
 
-    //obtyener emnpleaod por id
-    public Optional<Empleado> obtener(Long id) {
-        return empleadoRepository.findById(Math.toIntExact(id));
+    // Obtener empleado por id - LANZA EXCEPCIÓN SI NO EXISTE
+    public Empleado obtener(Long id) {
+        return empleadoRepository.findById(Math.toIntExact(id))
+                .orElseThrow(() -> new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id));
     }
+
     // Actualizar empleado
     public Empleado actualizar(Long id, Empleado empleadoActualizado) {
-        // Buscar el empleado existente por ID
-        Optional<Empleado> empleadoExistente = empleadoRepository.findById(Math.toIntExact(id));
+        Empleado empleado = empleadoRepository.findById(Math.toIntExact(id))
+                .orElseThrow(() -> new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id));
 
-        // Si el empleado existe, actualizar sus datos
-        if (empleadoExistente.isPresent()) {
-            Empleado empleado = empleadoExistente.get();
-            // Aquí asignamos los datos del empleado actualizado
-            empleado.setNombre(empleadoActualizado.getNombre());
-            empleado.setArea(empleadoActualizado.getArea());
-            empleado.setEdad(empleadoActualizado.getEdad());
-            empleado.setCorreo_electronico(empleadoActualizado.getCorreo_electronico());
-            empleado.setSueldo(empleadoActualizado.getSueldo());
-            // Guardamos el empleado actualizado
-            return empleadoRepository.save(empleado);
-        }
+        empleado.setNombre(empleadoActualizado.getNombre());
+        empleado.setArea(empleadoActualizado.getArea());
+        empleado.setEdad(empleadoActualizado.getEdad());
+        empleado.setCorreo_electronico(empleadoActualizado.getCorreo_electronico());
+        empleado.setSueldo(empleadoActualizado.getSueldo());
 
-        // Si el empleado no existe, lanzar una excepción
-        throw new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id);
+        return empleadoRepository.save(empleado);
     }
+
+    // Eliminar empleado
     public void eliminar(Long id) {
-        if (empleadoRepository.existsById(Math.toIntExact(id))) {
-            empleadoRepository.deleteById(Math.toIntExact(id));
-        } else {
+        if (!empleadoRepository.existsById(Math.toIntExact(id))) {
             throw new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id);
         }
+        empleadoRepository.deleteById(Math.toIntExact(id));
     }
 }
