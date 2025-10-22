@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 import java.io.Serializable;
 import java.util.Optional;
 @Repository
-public interface EmpleadoRepository extends JpaRepository<Empleado, Integer> {
+public interface EmpleadoRepository extends JpaRepository<Empleado, Long> {
     Optional<Empleado> findById(SingularAttribute<AbstractPersistable, Serializable> id);
+    // En EmpleadoRepository.java
+    boolean existsByCorreoElectronico(String correo_electronico);
 }
