@@ -12,5 +12,5 @@ import java.util.Optional;
 public interface EmpleadoRepository extends JpaRepository<Empleado, Long> {
     Optional<Empleado> findById(SingularAttribute<AbstractPersistable, Serializable> id);
     // En EmpleadoRepository.java
-    boolean existsByCorreoElectronico(String correo_electronico);
+    boolean existsBycorreo_electronico(String correo_electronico);
 }

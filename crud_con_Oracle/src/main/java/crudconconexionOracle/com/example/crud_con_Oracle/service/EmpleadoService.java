@@ -48,7 +48,7 @@ public class EmpleadoService {
 
         // Verificar duplicado de correo (solo si cambia)
         if (!empleado.getCorreo_electronico().equals(empleadoActualizado.getCorreo_electronico()) &&
-                empleadoRepository.existsByCorreoElectronico(empleadoActualizado.getCorreo_electronico())) {
+                empleadoRepository.existsBycorreo_electronico(empleadoActualizado.getCorreo_electronico())) {
             throw new DuplicateMailExeption("Ya existe un empleado con el correo: " + empleadoActualizado.getCorreo_electronico());
         }
 
