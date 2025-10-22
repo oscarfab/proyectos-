@@ -50,8 +50,8 @@ public class GlobalExceptionHandler {
     }
 
     // 409 - Correo duplicado
-    @ExceptionHandler(DuplicateMailExeption.class)
-    public ResponseEntity<Map<String, Object>> handleDuplicateEmail(DuplicateMailExeption ex) {
+    @ExceptionHandler(DuplicateMailException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateEmail(DuplicateMailException ex) {
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.CONFLICT.value()); // 409

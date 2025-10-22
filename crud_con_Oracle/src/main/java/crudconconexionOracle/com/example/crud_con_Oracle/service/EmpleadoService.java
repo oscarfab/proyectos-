@@ -3,7 +3,7 @@ package crudconconexionOracle.com.example.crud_con_Oracle.service;
 
 import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
 import manejoExepciones.DatabaseException;
-import manejoExepciones.DuplicateMailExeption;
+import manejoExepciones.DuplicateMailException;
 import manejoExepciones.EmpleadoNoEncontrado;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ public class EmpleadoService {
     public Empleado create(Empleado empleado) {
         // Verificar si el correo ya existe
         if (empleadoRepository.existsByCorreo_electronico(empleado.getCorreo_electronico())) {
-            throw new DuplicateMailExeption("Ya existe un empleado con el correo: " + empleado.getCorreo_electronico());
+            throw new DuplicateMailException("Ya existe un empleado con el correo: " + empleado.getCorreo_electronico());
         }
         try {
             return empleadoRepository.save(empleado);
@@ -49,7 +49,7 @@ public class EmpleadoService {
         // Verificar duplicado de correo (solo si cambia)
         if (!empleado.getCorreo_electronico().equals(empleadoActualizado.getCorreo_electronico()) &&
                 empleadoRepository.existsByCorreo_electronico(empleadoActualizado.getCorreo_electronico())) {
-            throw new DuplicateMailExeption("Ya existe un empleado con el correo: " + empleadoActualizado.getCorreo_electronico());
+            throw new DuplicateMailException("Ya existe un empleado con el correo: " + empleadoActualizado.getCorreo_electronico());
         }
 
         empleado.setNombre(empleadoActualizado.getNombre());
