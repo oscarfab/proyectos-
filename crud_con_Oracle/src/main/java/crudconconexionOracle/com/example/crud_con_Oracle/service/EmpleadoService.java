@@ -19,7 +19,7 @@ public class EmpleadoService {
 
     public Empleado create(Empleado empleado) {
         // Verificar si el correo ya existe
-        if (empleadoRepository.existsByCorreoElectronico(empleado.getCorreo_electronico())) {
+        if (empleadoRepository.existsByCorreo_electronico(empleado.getCorreo_electronico())) {
             throw new DuplicateMailExeption("Ya existe un empleado con el correo: " + empleado.getCorreo_electronico());
         }
         try {
@@ -48,7 +48,7 @@ public class EmpleadoService {
 
         // Verificar duplicado de correo (solo si cambia)
         if (!empleado.getCorreo_electronico().equals(empleadoActualizado.getCorreo_electronico()) &&
-                empleadoRepository.existsBycorreo_electronico(empleadoActualizado.getCorreo_electronico())) {
+                empleadoRepository.existsByCorreo_electronico(empleadoActualizado.getCorreo_electronico())) {
             throw new DuplicateMailExeption("Ya existe un empleado con el correo: " + empleadoActualizado.getCorreo_electronico());
         }
 
