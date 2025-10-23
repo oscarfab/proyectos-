@@ -1,5 +1,6 @@
 package manejoExepciones;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -9,7 +10,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -38,7 +38,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    // 400 - Para casos manuales (si decides usar EmpleadoBadRequest)
+    // 400 - Para casos manuales
     @ExceptionHandler(EmpleadoBadRequest.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(EmpleadoBadRequest ex) {
         Map<String, Object> body = new HashMap<>();
@@ -49,18 +49,29 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    // 409 - Correo duplicado
+    // 409 - Correo duplicado (lanzado manualmente)
     @ExceptionHandler(DuplicateMailException.class)
     public ResponseEntity<Map<String, Object>> handleDuplicateEmail(DuplicateMailException ex) {
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", LocalDateTime.now());
-        body.put("status", HttpStatus.CONFLICT.value()); // 409
+        body.put("status", HttpStatus.CONFLICT.value());
         body.put("error", "Conflicto de datos");
         body.put("message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
-    // 500 - Errores de base de datos
+    // 409 - Violación de integridad en BD (ej: constraint UNIQUE falla en Oracle)
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("error", "Conflicto de datos");
+        body.put("message", "El correo electrónico ya está registrado en el sistema.");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    // 500 - Errores de base de datos personalizados
     @ExceptionHandler(DatabaseException.class)
     public ResponseEntity<Map<String, Object>> handleDatabase(DatabaseException ex) {
         Map<String, Object> body = new HashMap<>();
@@ -68,7 +79,6 @@ public class GlobalExceptionHandler {
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         body.put("error", "Error de base de datos");
         body.put("message", ex.getMessage());
-        // En producción, NO expongas el stack trace
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
