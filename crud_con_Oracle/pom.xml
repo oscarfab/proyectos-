@@ -51,7 +51,7 @@
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.6.0</version>
+			<version>2.7.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -83,6 +83,13 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
+	<!-- ⚙️ Repositorio para SNAPSHOT de Springdoc -->
+	<repositories>
+		<repository>
+			<id>ossrh-snapshots</id>
+			<url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+		</repository>
+	</repositories>
 
 	<build>
 		<plugins>
