@@ -12,6 +12,5 @@ import java.io.Serializable;
 import java.util.Optional;
 @Repository
 public interface EmpleadoRepository extends JpaRepository<Empleado, Long> {
-    @Query("SELECT EXISTS (SELECT 1 FROM Empleado e WHERE e.correo_electronico = :correo)")
-    boolean existsByCorreo_electronico(@Param("correo") String correo);
+    boolean existsByCorreoElectronico(String correoElectronico);
 }

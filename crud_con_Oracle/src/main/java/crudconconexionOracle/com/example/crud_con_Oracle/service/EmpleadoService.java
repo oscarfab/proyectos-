@@ -20,16 +20,11 @@ public class EmpleadoService {
 
     public Empleado create(Empleado empleado) {
         // Verificar si el correo ya existe
-        if (empleadoRepository.existsByCorreo_electronico(empleado.getCorreo_electronico())) {
-            throw new DuplicateMailException("Ya existe un empleado con el correo: " + empleado.getCorreo_electronico());
+        if (empleadoRepository.existsByCorreoElectronico(empleado.getCorreoElectronico())) {
+            throw new DuplicateMailException("Ya existe un empleado con el correo: " + empleado.getCorreoElectronico());
         }
-        try {
-            return empleadoRepository.save(empleado);
-        } catch (DataIntegrityViolationException e) {
-            throw new DuplicateMailException("Ya existe un empleado con el correo: " + empleado.getCorreo_electronico());
-        } catch (Exception e) {
-            throw new DatabaseException("Error al guardar el empleado en la base de datos", e);
-        }
+        return empleadoRepository.save(empleado);
+
     }
 
     public List<Empleado> obtenerTodos() {
@@ -50,15 +45,15 @@ public class EmpleadoService {
                 .orElseThrow(() -> new EmpleadoNoEncontrado("Empleado no encontrado con ID: " + id));
 
         // Verificar duplicado de correo (solo si cambia)
-        if (!empleado.getCorreo_electronico().equals(empleadoActualizado.getCorreo_electronico()) &&
-                empleadoRepository.existsByCorreo_electronico(empleadoActualizado.getCorreo_electronico())) {
-            throw new DuplicateMailException("Ya existe un empleado con el correo: " + empleadoActualizado.getCorreo_electronico());
+        if (!empleado.getCorreoElectronico().equals(empleadoActualizado.getCorreoElectronico()) &&
+                empleadoRepository.existsByCorreoElectronico(empleadoActualizado.getCorreoElectronico())) {
+            throw new DuplicateMailException("Ya existe un empleado con el correo: " + empleadoActualizado.getCorreoElectronico());
         }
 
         empleado.setNombre(empleadoActualizado.getNombre());
         empleado.setArea(empleadoActualizado.getArea());
         empleado.setEdad(empleadoActualizado.getEdad());
-        empleado.setCorreo_electronico(empleadoActualizado.getCorreo_electronico());
+        empleado.setCorreoElectronico(empleadoActualizado.getCorreoElectronico());
         empleado.setSueldo(empleadoActualizado.getSueldo());
 
         try {

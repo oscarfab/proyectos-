@@ -40,7 +40,7 @@ public class Empleado {
     @Email(message = "El correo electrónico debe ser válido")
     @Column(name = "CORREO_ELECTRONICO",nullable = false, length = 100)
     @Schema(description = "Correo electrónico corporativo", example = "juan.perez@empresa.com", format = "email")
-    private String correo_electronico;
+    private String correoElectronico;
 
     @DecimalMin(value = "0.0", message = "El sueldo no puede ser negativo")
     @Column(name = "SUELDO")
