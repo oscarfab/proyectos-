@@ -2,15 +2,11 @@ package crudconconexionOracle.com.example.crud_con_Oracle.controller;
 
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
-import manejoExepciones.EmpleadoNoEncontrado;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import crudconconexionOracle.com.example.crud_con_Oracle.service.EmpleadoService;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/empleados")

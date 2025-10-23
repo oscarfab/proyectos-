@@ -2,16 +2,15 @@ package crudconconexionOracle.com.example.crud_con_Oracle.service;
 
 
 import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
-import manejoExepciones.DatabaseException;
-import manejoExepciones.DuplicateMailException;
-import manejoExepciones.EmpleadoNoEncontrado;
+import crudconconexionOracle.com.example.crud_con_Oracle.manejoExepciones.DatabaseException;
+import crudconconexionOracle.com.example.crud_con_Oracle.manejoExepciones.DuplicateMailException;
+import crudconconexionOracle.com.example.crud_con_Oracle.manejoExepciones.EmpleadoNoEncontrado;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import crudconconexionOracle.com.example.crud_con_Oracle.repository.EmpleadoRepository;
 
 import java.util.List;
-import java.util.Optional;
+
 @Service
 public class EmpleadoService {
 

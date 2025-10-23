@@ -1,4 +1,4 @@
-package manejoExepciones;
+package crudconconexionOracle.com.example.crud_con_Oracle.manejoExepciones;
 
 import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
 
