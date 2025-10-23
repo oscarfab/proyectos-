@@ -30,7 +30,7 @@ public class OpenApiConfig {
                             - Buscar empleado por ID
                             -  Actualizar información de empleados
                             -  Eliminar empleados
-                            
+                            -CREADO POR OSCAR FABAIN OCANA VILLAGRAN
                             ##  Validaciones
                             - Nombre: obligatorio, 2-100 caracteres
                             - Edad: 18-100 años
