@@ -42,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.hamcrest.Matchers.hasSize;
 
-@SpringBootTest
+
 @WebMvcTest(controllers = EmpleadoController.class)
 @Import(GlobalExceptionHandler.class)
 @DisplayName("Pruebas del Controlador de Empleados")
