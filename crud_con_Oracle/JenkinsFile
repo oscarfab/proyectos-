@@ -65,7 +65,7 @@ pipeline {
                 script {
                     dir("${PROJECT_PATH}") {
                         // Ejecutar tests conectándose al contenedor de Oracle
-                        bat 'mvn clean package'bat 'mvn clean test'
+                        bat 'mvn clean package'
                     }
                 }
             }
