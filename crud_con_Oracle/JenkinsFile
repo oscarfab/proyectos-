@@ -2,16 +2,18 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME = 'crud-oracle-app'
-        IMAGE_TAG = "${BUILD_NUMBER}"
-        DOCKER_IMAGE = "${APP_NAME}:${IMAGE_TAG}"
-        GIT_REPO = 'https://github.com/oscarfab/proyectos-.git'
-        GIT_BRANCH = 'main'
-        PROJECT_PATH = 'crud_con_Oracle'
-        CONTAINER_NAME = 'crud-oracle-container'
-        ORACLE_CONTAINER = 'oracle-jenkins'
-        APP_PORT = '8088'
-        HOST_PORT = '8088'
+        APP_NAME            = 'crud-oracle-app'
+        IMAGE_TAG           = "${BUILD_NUMBER}"
+        DOCKER_IMAGE        = "${APP_NAME}:${IMAGE_TAG}"
+        GIT_REPO            = 'https://github.com/oscarfab/proyectos-.git'
+        GIT_BRANCH          = 'main'
+        PROJECT_PATH        = 'crud_con_Oracle'
+        CONTAINER_NAME      = 'crud-oracle-container'
+        ORACLE_CONTAINER    = 'oracle-jenkins'
+        APP_PORT            = '8088'
+        HOST_PORT           = '8088'
+        ORACLE_PASSWORD     = 'oracle'
+        ORACLE_SERVICE      = 'xepdb1'
     }
 
     tools {
@@ -30,22 +32,59 @@ pipeline {
             }
         }
 
-        stage('Clean & Package') {
+        stage('Start Oracle for Tests & App') {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
+                        // Detener y eliminar si ya existe
+                        bat "docker stop ${ORACLE_CONTAINER} || exit 0"
+                        bat "docker rm ${ORACLE_CONTAINER} || exit 0"
+
+                        // Iniciar Oracle en background
+                        bat """
+                            docker run -d ^
+                            --name ${ORACLE_CONTAINER} ^
+                            -p 1521:1521 ^
+                            -e ORACLE_PASSWORD=${ORACLE_PASSWORD} ^
+                            gvenzl/oracle-xe:21-slim
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Wait for Oracle to be ready') {
+            steps {
+                echo '⏳ Esperando a que Oracle esté listo (90s)...'
+                sleep(90)
+            }
+        }
+
+        stage('Run Unit & Integration Tests with Oracle') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        // Ejecutar tests conectándose al contenedor de Oracle
                         bat 'mvn clean test'
                     }
                 }
             }
             post {
-                    always {
-                        // Publicar reporte de pruebas
-                        junit 'target/surefire-reports/*.xml'
-                        // Publicar cobertura (si usas plugin de JaCoCo en Jenkins)
-                        publishCoverage adapters: [jacocoAdapter('target/site/jacoco/jacoco.xml')]
+                always {
+                    script {
+                        dir("${PROJECT_PATH}") {
+                            // Publicar resultados de pruebas
+                            if (fileExists('target/surefire-reports')) {
+                                junit 'target/surefire-reports/*.xml'
+                            }
+                            // Publicar cobertura de JaCoCo
+                            if (fileExists('target/site/jacoco/jacoco.xml')) {
+                                publishCoverage adapters: [jacocoAdapter('target/site/jacoco/jacoco.xml')]
+                            }
+                        }
                     }
                 }
+            }
         }
 
         stage('Build Docker Image') {
@@ -59,52 +98,28 @@ pipeline {
             }
         }
 
-        stage('Stop Old Containers') {
+        stage('Stop App Container (if running)') {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
-                        bat(script: "docker stop ${CONTAINER_NAME}", returnStatus: true)
-                        bat(script: "docker rm ${CONTAINER_NAME}", returnStatus: true)
-                        bat(script: "docker stop ${ORACLE_CONTAINER}", returnStatus: true)
-                        bat(script: "docker rm ${ORACLE_CONTAINER}", returnStatus: true)
+                        bat "docker stop ${CONTAINER_NAME} || exit 0"
+                        bat "docker rm ${CONTAINER_NAME} || exit 0"
                     }
                 }
             }
         }
 
-        stage('Run Oracle') {
-            steps {
-                script {
-                    dir("${PROJECT_PATH}") {
-                        bat """
-                            docker run -d ^
-                            --name ${ORACLE_CONTAINER} ^
-                            -p 1521:1521 ^
-                            -e ORACLE_PASSWORD=oracle ^
-                            gvenzl/oracle-xe:21-slim
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Wait Oracle') {
-            steps {
-                sleep(90)
-            }
-        }
-
-        stage('Run App') {
+        stage('Run Application with Oracle') {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
                         bat """
                             docker run -d ^
                             --name ${CONTAINER_NAME} ^
-                            -p ${HOST_PORT}:${APP_PORT} ^
-                            -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@host.docker.internal:1521/xepdb1 ^
+                            --network host ^
+                            -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@localhost:1521/${ORACLE_SERVICE} ^
                             -e SPRING_DATASOURCE_USERNAME=system ^
-                            -e SPRING_DATASOURCE_PASSWORD=oracle ^
+                            -e SPRING_DATASOURCE_PASSWORD=${ORACLE_PASSWORD} ^
                             ${APP_NAME}:latest
                         """
                     }
@@ -115,9 +130,9 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    sleep(30)
+                    sleep(20)
                     bat "docker logs ${CONTAINER_NAME}"
-                    echo "✅ App: http://localhost:${HOST_PORT}/swagger-ui.html"
+                    echo "✅ App desplegada: http://localhost:${HOST_PORT}/swagger-ui.html"
                 }
             }
         }
@@ -125,9 +140,17 @@ pipeline {
 
     post {
         success {
-            echo "✅ SUCCESS - http://localhost:${HOST_PORT}/swagger-ui.html"
+            echo "✅ ¡Pipeline completado con éxito!"
+            echo "✅ App: http://localhost:${HOST_PORT}/swagger-ui.html"
         }
         always {
+            // Opcional: detener Oracle al final (o dejarlo para debugging)
+            script {
+                dir("${PROJECT_PATH}") {
+                    bat "docker stop ${ORACLE_CONTAINER} || exit 0"
+                    bat "docker rm ${ORACLE_CONTAINER} || exit 0"
+                }
+            }
             cleanWs()
         }
     }
