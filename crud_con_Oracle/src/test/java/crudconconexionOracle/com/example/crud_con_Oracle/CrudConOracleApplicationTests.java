@@ -6,8 +6,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
-@ActiveProfiles("test")
-@TestPropertySource(locations = "classpath:application-test.properties")
+
 class CrudConOracleApplicationTests {
 
 	@Test
