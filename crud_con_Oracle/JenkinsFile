@@ -69,22 +69,28 @@ pipeline {
                     }
                 }
             }
-            post {
-                always {
-                    script {
-                        dir("${PROJECT_PATH}") {
-                            // Publicar resultados de pruebas
-                            if (fileExists('target/surefire-reports')) {
-                                junit 'target/surefire-reports/*.xml'
-                            }
-                            // Publicar cobertura de JaCoCo
-                            if (fileExists('target/site/jacoco/jacoco.xml')) {
-                                publishCoverage adapters: [jacocoAdapter('target/site/jacoco/jacoco.xml')]
-                            }
-                        }
-                    }
-                }
-            }
+           post {
+               always {
+                   script {
+                       dir("${PROJECT_PATH}") {
+                           // Publicar resultados de pruebas
+                           if (fileExists('target/surefire-reports')) {
+                               junit 'target/surefire-reports/*.xml'
+                           }
+                           // Publicar cobertura con el plugin JaCoCo oficial
+                           if (fileExists('target/jacoco.exec')) {
+                               jacoco(
+                                   execPattern: 'target/jacoco.exec',
+                                   classPattern: 'target/classes',
+                                   sourcePattern: 'src/main/java',
+                                   exclusionPattern: 'src/test*'
+                               )
+                           }
+                       }
+                   }
+               }
+           }
+
         }
 
         stage('Build Docker Image') {
