@@ -30,7 +30,7 @@ public class EmpleadoService {
         try {
             return empleadoRepository.findAll();
         } catch (Exception e) {
-            throw new DatabaseException("Error al obtener la lista de empleados", e);
+            throw new DatabaseException("Error al obtener la lista de empleados");
         }
     }
 
@@ -58,7 +58,7 @@ public class EmpleadoService {
         try {
             return empleadoRepository.save(empleado);
         } catch (Exception e) {
-            throw new DatabaseException("Error al actualizar el empleado", e);
+            throw new DatabaseException("Error al actualizar el empleado");
         }
     }
 
@@ -69,7 +69,7 @@ public class EmpleadoService {
         try {
             empleadoRepository.deleteById(id);
         } catch (Exception e) {
-            throw new DatabaseException("Error al eliminar el empleado", e);
+            throw new DatabaseException("Error al eliminar el empleado");
         }
     }
 }
