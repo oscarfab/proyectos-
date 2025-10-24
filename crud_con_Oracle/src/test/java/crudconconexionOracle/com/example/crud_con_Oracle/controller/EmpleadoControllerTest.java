@@ -15,6 +15,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 
 
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.client.match.ContentRequestMatchers;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.RequestBuilder;
@@ -39,7 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.hamcrest.Matchers.hasSize;
 
-
+@ActiveProfiles("test")
+@TestPropertySource(locations = "classpath:application-test.properties")
 @WebMvcTest(controllers = EmpleadoController.class)
 @Import(GlobalExceptionHandler.class)
 @DisplayName("Pruebas del Controlador de Empleados")

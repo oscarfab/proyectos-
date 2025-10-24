@@ -34,10 +34,18 @@ pipeline {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
-                        bat 'mvn clean package -DskipTests'
+                        bat 'mvn clean test'
                     }
                 }
             }
+            post {
+                    always {
+                        // Publicar reporte de pruebas
+                        junit 'target/surefire-reports/*.xml'
+                        // Publicar cobertura (si usas plugin de JaCoCo en Jenkins)
+                        publishCoverage adapters: [jacocoAdapter('target/site/jacoco/jacoco.xml')]
+                    }
+                }
         }
 
         stage('Build Docker Image') {
