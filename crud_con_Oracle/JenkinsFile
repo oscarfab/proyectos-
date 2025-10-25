@@ -51,6 +51,9 @@ pipeline {
                         bat "docker rm ${ORACLE_CONTAINER} || exit 0"
 
                         bat """
+                            docker stop ${ORACLE_CONTAINER} || exit 0
+                            docker rm ${ORACLE_CONTAINER} || exit 0
+                            docker ps -aqf "publish=1521" | findstr . && docker stop $(docker ps -aqf "publish=1521") || exit 0
                             docker run -d ^
                             --name ${ORACLE_CONTAINER} ^
                             --network ${NETWORK_NAME} ^
