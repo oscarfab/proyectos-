@@ -45,19 +45,21 @@ pipeline {
         stage('Iniciar contenedor Oracle XE') {
             steps {
                 script {
-                    bat(
-                        """
-                        docker stop ${ORACLE_CONTAINER} || exit 0
-                        docker rm ${ORACLE_CONTAINER} || exit 0
-                        for /f "tokens=*" %i in ('docker ps -q --filter "publish=1521"') do docker stop %i
-                        docker run -d ^
-                        --name ${ORACLE_CONTAINER} ^
-                        --network ${NETWORK_NAME} ^
-                        -e ORACLE_PASSWORD=${ORACLE_PASSWORD} ^
-                        -p 1521:1521 ^
-                        gvenzl/oracle-xe:21-slim
-                        """.stripIndent()
-                    )
+                    dir("${PROJECT_PATH}") {
+                        echo '🗃️ Iniciando contenedor de Oracle XE...'
+                        bat(
+                            """
+                            docker stop ${ORACLE_CONTAINER} || exit 0
+                            docker rm ${ORACLE_CONTAINER} || exit 0
+                            for /f "tokens=*" %i in ('docker ps -q --filter "publish=1521"') do docker stop %i
+                            docker run -d ^
+                            --name ${ORACLE_CONTAINER} ^
+                            --network ${NETWORK_NAME} ^
+                            -e ORACLE_PASSWORD=${ORACLE_PASSWORD} ^
+                            -p 1521:1521 ^
+                            gvenzl/oracle-xe:21-slim
+                            """.stripIndent()
+                        )
                     }
                 }
             }
@@ -129,7 +131,8 @@ pipeline {
                 script {
                     dir("${PROJECT_PATH}") {
                         echo '🚀 Iniciando aplicación conectada a Oracle...'
-                        bat """
+                        bat(
+                            """
                             docker run -d ^
                             --name ${CONTAINER_NAME} ^
                             --network ${NETWORK_NAME} ^
@@ -138,7 +141,8 @@ pipeline {
                             -e SPRING_DATASOURCE_USERNAME=system ^
                             -e SPRING_DATASOURCE_PASSWORD=${ORACLE_PASSWORD} ^
                             ${APP_NAME}:latest
-                        """
+                            """.stripIndent()
+                        )
                     }
                 }
             }
