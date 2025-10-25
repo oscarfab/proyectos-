@@ -6,10 +6,11 @@ pipeline {
         DOCKER_IMAGE     = "${APP_NAME}:latest"
         PROJECT_PATH     = 'crud_con_Oracle'
         CONTAINER_NAME   = 'crud-oracle-container'
-        ORACLE_CONTAINER = 'oracle-jenkins'
+        ORACLE_CONTAINER = 'oracle-db'
         APP_PORT         = '8088'
         GIT_REPO         = 'https://github.com/oscarfab/proyectos-.git'
         GIT_BRANCH       = 'main'
+        NETWORK_NAME     = 'jenkins-net'
     }
 
     tools {
@@ -19,6 +20,7 @@ pipeline {
 
     stages {
 
+        // 🧾 1️⃣ DESCARGAR CÓDIGO
         stage('Checkout') {
             steps {
                 echo '📥 Descargando código desde GitHub...'
@@ -30,61 +32,85 @@ pipeline {
             }
         }
 
+        // 🧪 2️⃣ COMPILAR Y PROBAR CON H2
         stage('Compilar y ejecutar pruebas unitarias') {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
                         echo '🧪 Ejecutando pruebas con H2 (sin Oracle)...'
-                        bat 'mvn clean package'
+                        bat 'mvn clean verify'
                     }
                 }
             }
             post {
                 always {
-                    echo '📊 Publicando resultados de pruebas...'
-                    // Aquí puedes agregar junit y jacoco si quieres publicar reportes
+                    echo '📊 Publicando resultados de pruebas unitarias...'
+                    // 📁 Publicar resultados de JUnit
+                    junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+
+                    // 📈 Publicar cobertura con JaCoCo
+                    jacoco(
+                        execPattern: '**/target/jacoco.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java',
+                        inclusionPattern: '**/*.class',
+                        exclusionPattern: '**/test/**'
+                    )
                 }
             }
         }
 
-        stage('Iniciar Oracle para la app') {
+        // 🌐 3️⃣ CREAR RED DOCKER
+        stage('Crear red Docker') {
             steps {
                 script {
-                    dir("${PROJECT_PATH}") {
-                        echo '🗃️ Iniciando contenedor de Oracle XE...'
-                        bat "docker stop ${ORACLE_CONTAINER} || exit 0"
-                        bat "docker rm ${ORACLE_CONTAINER} || exit 0"
-                        bat """
-                            docker run -d ^
-                            --name ${ORACLE_CONTAINER} ^
-                            -p 1521:1521 ^
-                            -e ORACLE_PASSWORD=oracle ^
-                            gvenzl/oracle-xe:21-slim
-                        """
-                    }
+                    echo '🌐 Creando red Docker compartida...'
+                    bat "docker network create ${NETWORK_NAME} || exit 0"
                 }
             }
         }
 
-        stage('Esperar Oracle') {
+        // 🗃️ 4️⃣ INICIAR CONTENEDOR ORACLE
+        stage('Iniciar Oracle XE') {
             steps {
-                echo '⏳ Esperando a que Oracle esté listo...'
-                sleep(90)
+                script {
+                    echo '🗃️ Iniciando contenedor de Oracle XE...'
+                    bat "docker stop ${ORACLE_CONTAINER} || exit 0"
+                    bat "docker rm ${ORACLE_CONTAINER} || exit 0"
+                    bat """
+                        docker run -d ^
+                        --name ${ORACLE_CONTAINER} ^
+                        --network ${NETWORK_NAME} ^
+                        -p 1521:1521 ^
+                        -e ORACLE_PASSWORD=oracle ^
+                        gvenzl/oracle-xe:21-slim
+                    """
+                }
             }
         }
 
+        // ⏳ 5️⃣ ESPERAR ORACLE
+        stage('Esperar Oracle') {
+            steps {
+                echo '⏳ Esperando 90 segundos a que Oracle esté listo...'
+                sleep(time: 90, unit: 'SECONDS')
+            }
+        }
+
+        // 🏗️ 6️⃣ CONSTRUIR IMAGEN DE LA APP
         stage('Construir imagen Docker') {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
-                        echo '🏗️ Construyendo imagen Docker...'
+                        echo '🏗️ Construyendo imagen Docker de la aplicación...'
                         bat "docker build -t ${DOCKER_IMAGE} ."
                     }
                 }
             }
         }
 
-        stage('Ejecutar app con Oracle') {
+        // 🚀 7️⃣ DESPLEGAR APP CON ORACLE
+        stage('Ejecutar aplicación con Oracle') {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
@@ -94,14 +120,24 @@ pipeline {
                         bat """
                             docker run -d ^
                             --name ${CONTAINER_NAME} ^
+                            --network ${NETWORK_NAME} ^
                             -p ${APP_PORT}:${APP_PORT} ^
-                            -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@host.docker.internal:1521/xepdb1 ^
-                            -e SPRING_DATASOURCE_USERNAME=system ^
-                            -e SPRING_DATASOURCE_PASSWORD=oracle ^
-                            ${APP_NAME}:latest
+                            -e ORACLE_HOST=${ORACLE_CONTAINER} ^
+                            -e ORACLE_PORT=1521 ^
+                            -e ORACLE_SERVICE=xepdb1 ^
+                            -e ORACLE_USER=system ^
+                            -e ORACLE_PASSWORD=oracle ^
+                            ${DOCKER_IMAGE}
                         """
                     }
                 }
+            }
+        }
+
+        // ✅ 8️⃣ VERIFICAR DEPLOY (OPCIONAL)
+        stage('Verificar despliegue') {
+            steps {
+                echo "🌍 Verificando aplicación en http://localhost:${APP_PORT}/swagger-ui.html"
             }
         }
     }
@@ -116,6 +152,9 @@ pipeline {
         }
         success {
             echo "✅ Pipeline completado con éxito. App disponible en http://localhost:${APP_PORT}/swagger-ui.html"
+        }
+        failure {
+            echo "❌ Error en el pipeline. Revisa los logs para más detalles."
         }
     }
 }
