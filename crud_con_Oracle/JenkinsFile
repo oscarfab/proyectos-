@@ -122,8 +122,8 @@ pipeline {
                         bat """
                             docker run -d ^
                             --name ${CONTAINER_NAME} ^
-                            --network host ^
-                            -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@localhost:1521/${ORACLE_SERVICE} ^
+                            -p ${APP_PORT}:${APP_PORT} ^
+                            -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@host.docker.internal:1521/${ORACLE_SERVICE} ^
                             -e SPRING_DATASOURCE_USERNAME=system ^
                             -e SPRING_DATASOURCE_PASSWORD=${ORACLE_PASSWORD} ^
                             ${APP_NAME}:latest
