@@ -1,68 +1,121 @@
-stages {
-    stage('Checkout') {
-        steps {
-            checkout scmGit(...)
-        }
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME         = 'crud-oracle-app'
+        DOCKER_IMAGE     = "${APP_NAME}:latest"
+        PROJECT_PATH     = 'crud_con_Oracle'
+        CONTAINER_NAME   = 'crud-oracle-container'
+        ORACLE_CONTAINER = 'oracle-jenkins'
+        APP_PORT         = '8088'
+        GIT_REPO         = 'https://github.com/oscarfab/proyectos-.git'
+        GIT_BRANCH       = 'main'
     }
 
-    // ✅ NO iniciamos Oracle aquí
+    tools {
+        maven 'Maven'
+        jdk 'Java'
+    }
 
-    stage('Compilar y ejecutar pruebas unitarias') {
-        steps {
-            script {
-                dir("${PROJECT_PATH}") {
-                    echo '🧪 Ejecutando pruebas con H2 (sin Oracle)...'
-                    bat 'mvn clean package'  // ← genera el JAR y pasa pruebas con H2
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo '📥 Descargando código desde GitHub...'
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/${GIT_BRANCH}"]],
+                    userRemoteConfigs: [[url: "${GIT_REPO}"]]
+                ])
+            }
+        }
+
+        stage('Compilar y ejecutar pruebas unitarias') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        echo '🧪 Ejecutando pruebas con H2 (sin Oracle)...'
+                        bat 'mvn clean package'
+                    }
+                }
+            }
+            post {
+                always {
+                    echo '📊 Publicando resultados de pruebas...'
+                    // Aquí puedes agregar junit y jacoco si quieres publicar reportes
                 }
             }
         }
-        post {
-            always {
-                // Publicar resultados y cobertura
+
+        stage('Iniciar Oracle para la app') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        echo '🗃️ Iniciando contenedor de Oracle XE...'
+                        bat "docker stop ${ORACLE_CONTAINER} || exit 0"
+                        bat "docker rm ${ORACLE_CONTAINER} || exit 0"
+                        bat """
+                            docker run -d ^
+                            --name ${ORACLE_CONTAINER} ^
+                            -p 1521:1521 ^
+                            -e ORACLE_PASSWORD=oracle ^
+                            gvenzl/oracle-xe:21-slim
+                        """
+                    }
+                }
             }
         }
-    }
 
-    // ✅ AHORA SÍ iniciamos Oracle, pero SOLO para desplegar la app real
-    stage('Iniciar Oracle para la app') {
-        steps {
-            script {
-                dir("${PROJECT_PATH}") {
-                    bat "docker run -d --name ${ORACLE_CONTAINER} -p 1521:1521 -e ORACLE_PASSWORD=oracle gvenzl/oracle-xe:21-slim"
+        stage('Esperar Oracle') {
+            steps {
+                echo '⏳ Esperando a que Oracle esté listo...'
+                sleep(90)
+            }
+        }
+
+        stage('Construir imagen Docker') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        echo '🏗️ Construyendo imagen Docker...'
+                        bat "docker build -t ${DOCKER_IMAGE} ."
+                    }
+                }
+            }
+        }
+
+        stage('Ejecutar app con Oracle') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        echo '🚀 Desplegando aplicación conectada a Oracle...'
+                        bat "docker stop ${CONTAINER_NAME} || exit 0"
+                        bat "docker rm ${CONTAINER_NAME} || exit 0"
+                        bat """
+                            docker run -d ^
+                            --name ${CONTAINER_NAME} ^
+                            -p ${APP_PORT}:${APP_PORT} ^
+                            -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@host.docker.internal:1521/xepdb1 ^
+                            -e SPRING_DATASOURCE_USERNAME=system ^
+                            -e SPRING_DATASOURCE_PASSWORD=oracle ^
+                            ${APP_NAME}:latest
+                        """
+                    }
                 }
             }
         }
     }
 
-    stage('Esperar Oracle') {
-        steps { sleep(90) }
-    }
-
-    stage('Construir imagen Docker') {
-        steps {
+    post {
+        always {
+            echo '🧹 Limpiando contenedores temporales...'
             script {
-                dir("${PROJECT_PATH}") {
-                    bat "docker build -t ${DOCKER_IMAGE} ."
-                }
+                bat "docker stop ${ORACLE_CONTAINER} || exit 0"
+                bat "docker rm ${ORACLE_CONTAINER} || exit 0"
             }
         }
-    }
-
-    stage('Ejecutar app con Oracle') {
-        steps {
-            script {
-                dir("${PROJECT_PATH}") {
-                    bat """
-                        docker run -d ^
-                        --name ${CONTAINER_NAME} ^
-                        -p ${APP_PORT}:${APP_PORT} ^
-                        -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@host.docker.internal:1521/xepdb1 ^
-                        -e SPRING_DATASOURCE_USERNAME=system ^
-                        -e SPRING_DATASOURCE_PASSWORD=oracle ^
-                        ${APP_NAME}:latest
-                    """
-                }
-            }
+        success {
+            echo "✅ Pipeline completado con éxito. App disponible en http://localhost:${APP_PORT}/swagger-ui.html"
         }
     }
 }
