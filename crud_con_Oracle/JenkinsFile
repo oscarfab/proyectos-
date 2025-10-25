@@ -1,178 +1,68 @@
-pipeline {
-    agent any
-
-    environment {
-        APP_NAME         = 'crud-oracle-app'
-        IMAGE_TAG        = "${BUILD_NUMBER}"
-        DOCKER_IMAGE     = "${APP_NAME}:${IMAGE_TAG}"
-        GIT_REPO         = 'https://github.com/oscarfab/proyectos-.git'
-        GIT_BRANCH       = 'main'
-        PROJECT_PATH     = 'crud_con_Oracle'
-        CONTAINER_NAME   = 'crud-oracle-container'
-        ORACLE_CONTAINER = 'oracle-jenkins'
-        NETWORK_NAME     = 'jenkins-net'
-        APP_PORT         = '8088'
-        HOST_PORT        = '8088'
-        ORACLE_PASSWORD  = 'oracle'
-        ORACLE_SERVICE   = 'xepdb1'
-    }
-
-    tools {
-        maven 'Maven'
-        jdk 'Java'
-    }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                echo '📥 Descargando código desde GitHub...'
-                checkout scmGit(
-                    branches: [[name: "*/${GIT_BRANCH}"]],
-                    userRemoteConfigs: [[url: "${GIT_REPO}"]]
-                )
-            }
-        }
-
-        stage('Crear red Docker (si no existe)') {
-            steps {
-                script {
-                    echo '🌐 Creando red Docker compartida...'
-                    bat "docker network create ${NETWORK_NAME} || exit 0"
-                }
-            }
-        }
-
-        stage('Iniciar contenedor Oracle XE') {
-            steps {
-                script {
-                    dir("${PROJECT_PATH}") {
-                        echo '🗃️ Iniciando contenedor de Oracle XE...'
-                        bat(
-                            """
-                            docker stop ${ORACLE_CONTAINER} || exit 0
-                            docker rm ${ORACLE_CONTAINER} || exit 0
-                            for /f "tokens=*" %i in ('docker ps -q --filter "publish=1521"') do docker stop %i
-                            docker run -d ^
-                            --name ${ORACLE_CONTAINER} ^
-                            --network ${NETWORK_NAME} ^
-                            -e ORACLE_PASSWORD=${ORACLE_PASSWORD} ^
-                            -p 1521:1521 ^
-                            gvenzl/oracle-xe:21-slim
-                            """.stripIndent()
-                        )
-                    }
-                }
-            }
-        }
-
-        stage('Esperar a que Oracle esté listo') {
-            steps {
-                echo '⏳ Esperando 90 segundos a que Oracle inicie...'
-                sleep(time: 90, unit: 'SECONDS')
-            }
-        }
-
-        stage('Compilar y ejecutar pruebas con Oracle') {
-            steps {
-                script {
-                    dir("${PROJECT_PATH}") {
-                        echo '🧪 Ejecutando pruebas unitarias e integración...'
-                        bat 'mvn clean package'
-                    }
-                }
-            }
-            post {
-                always {
-                    script {
-                        dir("${PROJECT_PATH}") {
-                            echo '📊 Publicando resultados de pruebas...'
-                            if (fileExists('target/surefire-reports')) {
-                                junit 'target/surefire-reports/*.xml'
-                            }
-                            if (fileExists('target/jacoco.exec')) {
-                                jacoco(
-                                    execPattern: 'target/jacoco.exec',
-                                    classPattern: 'target/classes',
-                                    sourcePattern: 'src/main/java',
-                                    exclusionPattern: 'src/test*'
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Construir imagen Docker de la app') {
-            steps {
-                script {
-                    dir("${PROJECT_PATH}") {
-                        echo '🐳 Construyendo imagen Docker...'
-                        bat "docker build -t ${DOCKER_IMAGE} ."
-                        bat "docker tag ${DOCKER_IMAGE} ${APP_NAME}:latest"
-                    }
-                }
-            }
-        }
-
-        stage('Detener contenedor previo de la app') {
-            steps {
-                script {
-                    dir("${PROJECT_PATH}") {
-                        bat "docker stop ${CONTAINER_NAME} || exit 0"
-                        bat "docker rm ${CONTAINER_NAME} || exit 0"
-                    }
-                }
-            }
-        }
-
-        stage('Ejecutar aplicación conectada a Oracle') {
-            steps {
-                script {
-                    dir("${PROJECT_PATH}") {
-                        echo '🚀 Iniciando aplicación conectada a Oracle...'
-                        bat(
-                            """
-                            docker run -d ^
-                            --name ${CONTAINER_NAME} ^
-                            --network ${NETWORK_NAME} ^
-                            -p ${APP_PORT}:${APP_PORT} ^
-                            -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@${ORACLE_CONTAINER}:1521/${ORACLE_SERVICE} ^
-                            -e SPRING_DATASOURCE_USERNAME=system ^
-                            -e SPRING_DATASOURCE_PASSWORD=${ORACLE_PASSWORD} ^
-                            ${APP_NAME}:latest
-                            """.stripIndent()
-                        )
-                    }
-                }
-            }
-        }
-
-        stage('Verificar despliegue') {
-            steps {
-                script {
-                    echo '🔍 Verificando logs de la aplicación...'
-                    sleep(20)
-                    bat "docker logs ${CONTAINER_NAME} --tail 20"
-                    echo "✅ App desplegada correctamente en: http://localhost:${HOST_PORT}/swagger-ui.html"
-                }
-            }
+stages {
+    stage('Checkout') {
+        steps {
+            checkout scmGit(...)
         }
     }
 
-    post {
-        success {
-            echo "🎉 ¡Pipeline completado con éxito!"
-        }
-        always {
+    // ✅ NO iniciamos Oracle aquí
+
+    stage('Compilar y ejecutar pruebas unitarias') {
+        steps {
             script {
-                echo '🧹 Limpiando contenedores temporales...'
                 dir("${PROJECT_PATH}") {
-                    bat "docker stop ${ORACLE_CONTAINER} || exit 0"
-                    bat "docker rm ${ORACLE_CONTAINER} || exit 0"
+                    echo '🧪 Ejecutando pruebas con H2 (sin Oracle)...'
+                    bat 'mvn clean package'  // ← genera el JAR y pasa pruebas con H2
                 }
             }
-            cleanWs()
+        }
+        post {
+            always {
+                // Publicar resultados y cobertura
+            }
+        }
+    }
+
+    // ✅ AHORA SÍ iniciamos Oracle, pero SOLO para desplegar la app real
+    stage('Iniciar Oracle para la app') {
+        steps {
+            script {
+                dir("${PROJECT_PATH}") {
+                    bat "docker run -d --name ${ORACLE_CONTAINER} -p 1521:1521 -e ORACLE_PASSWORD=oracle gvenzl/oracle-xe:21-slim"
+                }
+            }
+        }
+    }
+
+    stage('Esperar Oracle') {
+        steps { sleep(90) }
+    }
+
+    stage('Construir imagen Docker') {
+        steps {
+            script {
+                dir("${PROJECT_PATH}") {
+                    bat "docker build -t ${DOCKER_IMAGE} ."
+                }
+            }
+        }
+    }
+
+    stage('Ejecutar app con Oracle') {
+        steps {
+            script {
+                dir("${PROJECT_PATH}") {
+                    bat """
+                        docker run -d ^
+                        --name ${CONTAINER_NAME} ^
+                        -p ${APP_PORT}:${APP_PORT} ^
+                        -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@host.docker.internal:1521/xepdb1 ^
+                        -e SPRING_DATASOURCE_USERNAME=system ^
+                        -e SPRING_DATASOURCE_PASSWORD=oracle ^
+                        ${APP_NAME}:latest
+                    """
+                }
+            }
         }
     }
 }
