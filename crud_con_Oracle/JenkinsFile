@@ -45,22 +45,19 @@ pipeline {
         stage('Iniciar contenedor Oracle XE') {
             steps {
                 script {
-                    dir("${PROJECT_PATH}") {
-                        echo '🗃️ Iniciando contenedor de Oracle XE...'
-                        bat "docker stop ${ORACLE_CONTAINER} || exit 0"
-                        bat "docker rm ${ORACLE_CONTAINER} || exit 0"
-
-                        bat """
-                            docker stop ${ORACLE_CONTAINER} || exit 0
-                            docker rm ${ORACLE_CONTAINER} || exit 0
-                            docker ps -aqf "publish=1521" | findstr . && docker stop $(docker ps -aqf "publish=1521") || exit 0
-                            docker run -d ^
-                            --name ${ORACLE_CONTAINER} ^
-                            --network ${NETWORK_NAME} ^
-                            -e ORACLE_PASSWORD=${ORACLE_PASSWORD} ^
-                            -p 1521:1521 ^
-                            gvenzl/oracle-xe:21-slim
+                    bat(
                         """
+                        docker stop ${ORACLE_CONTAINER} || exit 0
+                        docker rm ${ORACLE_CONTAINER} || exit 0
+                        for /f "tokens=*" %i in ('docker ps -q --filter "publish=1521"') do docker stop %i
+                        docker run -d ^
+                        --name ${ORACLE_CONTAINER} ^
+                        --network ${NETWORK_NAME} ^
+                        -e ORACLE_PASSWORD=${ORACLE_PASSWORD} ^
+                        -p 1521:1521 ^
+                        gvenzl/oracle-xe:21-slim
+                        """.stripIndent()
+                    )
                     }
                 }
             }
