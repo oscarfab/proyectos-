@@ -124,15 +124,16 @@ pipeline {
                         echo '🚀 Desplegando aplicación conectada a Oracle...'
                         bat "docker stop ${CONTAINER_NAME} || exit 0"
                         bat "docker rm ${CONTAINER_NAME} || exit 0"
-                       bat """
-                           docker run -d ^
-                           --name ${CONTAINER_NAME} ^                // ✅ crud-oracle-container
-                           --network ${NETWORK_NAME} ^
-                           -p ${APP_PORT}:${APP_PORT} ^              // ✅ Puerto 8088 (tu app)
-                           -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@${ORACLE_CONTAINER}:1521/XEPDB1 ^
-                           -e SPRING_DATASOURCE_USERNAME=system ^
-                           -e SPRING_DATASOURCE_PASSWORD=oracle ^
-                           ${DOCKER_IMAGE}                           // ✅ crud-oracle-app:latest (tu app)
+                       bat """docker run -d ^
+                       --name ${CONTAINER_NAME} ^
+                       --network ${NETWORK_NAME} ^
+                       --restart unless-stopped ^
+                       -p ${APP_PORT}:${APP_PORT} ^
+                       -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@${ORACLE_CONTAINER}:1521/XEPDB1 ^
+                       -e SPRING_DATASOURCE_USERNAME=system ^
+                       -e SPRING_DATASOURCE_PASSWORD=oracle ^
+                       -e SPRING_JPA_HIBERNATE_DDL_AUTO=update ^
+                       ${DOCKER_IMAGE}
                        """
                     }
                 }
