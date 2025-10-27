@@ -20,7 +20,6 @@ pipeline {
 
     stages {
 
-        // 🧾 1️⃣ DESCARGAR CÓDIGO
         stage('Checkout') {
             steps {
                 echo '📥 Descargando código desde GitHub...'
@@ -32,7 +31,6 @@ pipeline {
             }
         }
 
-        // 🧪 2️⃣ COMPILAR Y PROBAR CON H2
         stage('Compilar y ejecutar pruebas unitarias') {
             steps {
                 script {
@@ -45,10 +43,7 @@ pipeline {
             post {
                 always {
                     echo '📊 Publicando resultados de pruebas unitarias...'
-                    // 📁 Publicar resultados de JUnit
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-
-                    // 📈 Publicar cobertura con JaCoCo
                     jacoco(
                         execPattern: '**/target/jacoco.exec',
                         classPattern: '**/target/classes',
@@ -60,7 +55,6 @@ pipeline {
             }
         }
 
-        // 🌐 3️⃣ CREAR RED DOCKER
         stage('Crear red Docker') {
             steps {
                 script {
@@ -70,41 +64,34 @@ pipeline {
             }
         }
 
-        // 🗃️ 4️⃣ INICIAR CONTENEDOR ORACLE
         stage('Iniciar Oracle XE') {
             steps {
                 script {
                     echo '🗃️ Iniciando contenedor de Oracle XE...'
                     bat "docker stop ${ORACLE_CONTAINER} || exit 0"
                     bat "docker rm ${ORACLE_CONTAINER} || exit 0"
-                    bat """
-                        docker run -d ^
-                        --name ${ORACLE_CONTAINER} ^
-                        --network ${NETWORK_NAME} ^
-                        -p 1521:1521 ^
-                        -e ORACLE_PASSWORD=oracle ^
-                        gvenzl/oracle-xe:21-slim
-                    """
+                    bat """docker run -d ^
+--name ${ORACLE_CONTAINER} ^
+--network ${NETWORK_NAME} ^
+-p 1521:1521 ^
+-e ORACLE_PASSWORD=oracle ^
+gvenzl/oracle-xe:21-slim"""
                 }
             }
         }
 
-        // ⏳ 5️⃣ ESPERAR ORACLE
         stage('Esperar Oracle') {
             steps {
                 script {
                     echo '⏳ Esperando a que Oracle esté listo...'
                     sleep(time: 120, unit: 'SECONDS')
-
                     echo '🔍 Verificando estado de Oracle...'
                     bat "docker logs ${ORACLE_CONTAINER}"
-
                     echo '✅ Oracle debería estar listo ahora'
                 }
             }
         }
 
-        // 🏗️ 6️⃣ CONSTRUIR IMAGEN DE LA APP
         stage('Construir imagen Docker') {
             steps {
                 script {
@@ -116,7 +103,6 @@ pipeline {
             }
         }
 
-        // 🚀 7️⃣ DESPLEGAR APP CON ORACLE
         stage('Ejecutar aplicación con Oracle') {
             steps {
                 script {
@@ -124,49 +110,62 @@ pipeline {
                         echo '🚀 Desplegando aplicación conectada a Oracle...'
                         bat "docker stop ${CONTAINER_NAME} || exit 0"
                         bat "docker rm ${CONTAINER_NAME} || exit 0"
-                       bat """docker run -d ^
-                       --name ${CONTAINER_NAME} ^
-                       --network ${NETWORK_NAME} ^
-                       --restart unless-stopped ^
-                       -p ${APP_PORT}:${APP_PORT} ^
-                       -e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@${ORACLE_CONTAINER}:1521/XEPDB1 ^
-                       -e SPRING_DATASOURCE_USERNAME=system ^
-                       -e SPRING_DATASOURCE_PASSWORD=oracle ^
-                       -e SPRING_JPA_HIBERNATE_DDL_AUTO=update ^
-                       ${DOCKER_IMAGE}
-                       """
+                        bat """docker run -d ^
+--name ${CONTAINER_NAME} ^
+--network ${NETWORK_NAME} ^
+--restart unless-stopped ^
+-p ${APP_PORT}:${APP_PORT} ^
+-e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@${ORACLE_CONTAINER}:1521/XEPDB1 ^
+-e SPRING_DATASOURCE_USERNAME=system ^
+-e SPRING_DATASOURCE_PASSWORD=oracle ^
+-e SPRING_JPA_HIBERNATE_DDL_AUTO=update ^
+${DOCKER_IMAGE}"""
+
+                        echo '⏳ Esperando 30 segundos para que la app inicie...'
+                        sleep(time: 30, unit: 'SECONDS')
+
+                        echo '🔍 Logs de la aplicación:'
+                        bat "docker logs ${CONTAINER_NAME}"
                     }
                 }
             }
         }
 
-        // ✅ 8️⃣ VERIFICAR DEPLOY (OPCIONAL)
         stage('Verificar despliegue') {
             steps {
-                echo "🌍 Verificando aplicación en http://localhost:${APP_PORT}/swagger-ui.html"
+                script {
+                    echo '🌍 Aplicación desplegada'
+                    echo "Swagger: http://localhost:${APP_PORT}/swagger-ui.html"
+                    echo "Health: http://localhost:${APP_PORT}/actuator/health"
+                    bat "docker ps --filter name=${CONTAINER_NAME}"
+                    bat "docker ps --filter name=${ORACLE_CONTAINER}"
+                }
             }
         }
     }
 
-   post {
-       always {
-           echo '🧹 Pipeline finalizado'
-       }
-       success {
-           echo "✅ Pipeline completado con éxito."
-           echo "📊 App: http://localhost:${APP_PORT}/swagger-ui.html"
-           echo "🗃️ Oracle DB: localhost:1521 (usuario: system, password: oracle)"
-           echo ""
-           echo "⚠️ Para detener todo ejecuta:"
-           echo "   docker stop ${CONTAINER_NAME} ${ORACLE_CONTAINER}"
-           echo "   docker rm ${CONTAINER_NAME} ${ORACLE_CONTAINER}"
-       }
-       failure {
-           echo "❌ Error en el pipeline. Revisa los logs."
-           echo "🔍 Para diagnosticar:"
-           echo "   docker logs ${ORACLE_CONTAINER}"
-           echo "   docker logs ${CONTAINER_NAME}"
-       }
-   }
-
+    post {
+        always {
+            echo '🧹 Pipeline finalizado'
+        }
+        success {
+            echo '✅ =========================================='
+            echo '✅ PIPELINE EXITOSO'
+            echo '✅ =========================================='
+            echo ''
+            echo "📊 Swagger: http://localhost:${APP_PORT}/swagger-ui.html"
+            echo "💚 Health: http://localhost:${APP_PORT}/actuator/health"
+            echo "📡 API: http://localhost:${APP_PORT}/api/empleados"
+            echo ''
+            echo '🗃️ Oracle: localhost:1521 (system/oracle)'
+            echo ''
+            echo '⚠️ Para detener:'
+            echo "   docker stop ${CONTAINER_NAME} ${ORACLE_CONTAINER}"
+        }
+        failure {
+            echo '❌ ERROR EN EL PIPELINE'
+            echo "🔍 docker logs ${ORACLE_CONTAINER}"
+            echo "🔍 docker logs ${CONTAINER_NAME}"
+        }
+    }
 }
