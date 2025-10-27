@@ -166,4 +166,4 @@ pipeline {
            echo "   docker logs ${CONTAINER_NAME}"
        }
    }
-}
+
