@@ -144,26 +144,27 @@ pipeline {
                 echo "🌍 Verificando aplicación en http://localhost:${APP_PORT}/swagger-ui.html"
             }
         }
+
+
+        post {
+           always {
+               echo '🧹 Pipeline finalizado'
+           }
+           success {
+               echo "✅ Pipeline completado con éxito."
+               echo "📊 App: http://localhost:${APP_PORT}/swagger-ui.html"
+               echo "🗃️ Oracle DB: localhost:1521 (usuario: system, password: oracle)"
+               echo ""
+               echo "⚠️ Para detener todo ejecuta:"
+               echo "   docker stop ${CONTAINER_NAME} ${ORACLE_CONTAINER}"
+               echo "   docker rm ${CONTAINER_NAME} ${ORACLE_CONTAINER}"
+           }
+           failure {
+               echo "❌ Error en el pipeline. Revisa los logs."
+               echo "🔍 Para diagnosticar:"
+               echo "   docker logs ${ORACLE_CONTAINER}"
+               echo "   docker logs ${CONTAINER_NAME}"
+           }
+       }
+
     }
-
-   post {
-       always {
-           echo '🧹 Pipeline finalizado'
-       }
-       success {
-           echo "✅ Pipeline completado con éxito."
-           echo "📊 App: http://localhost:${APP_PORT}/swagger-ui.html"
-           echo "🗃️ Oracle DB: localhost:1521 (usuario: system, password: oracle)"
-           echo ""
-           echo "⚠️ Para detener todo ejecuta:"
-           echo "   docker stop ${CONTAINER_NAME} ${ORACLE_CONTAINER}"
-           echo "   docker rm ${CONTAINER_NAME} ${ORACLE_CONTAINER}"
-       }
-       failure {
-           echo "❌ Error en el pipeline. Revisa los logs."
-           echo "🔍 Para diagnosticar:"
-           echo "   docker logs ${ORACLE_CONTAINER}"
-           echo "   docker logs ${CONTAINER_NAME}"
-       }
-   }
-
