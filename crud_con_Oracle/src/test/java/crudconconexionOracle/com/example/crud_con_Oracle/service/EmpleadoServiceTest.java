@@ -19,6 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -158,12 +159,14 @@ class EmpleadoServiceTest {
     @DisplayName("Obtener todos sin empleados retorna lista vacía")
     void testObtenerTodosVacio() {
         // Arrange
+        List<Object[]> resultadosVacios = new ArrayList<>();
+
         when(entityManager.createStoredProcedureQuery("SP_OBTENER_TODOS_EMPLEADOS"))
                 .thenReturn(storedProcedureQuery);
         when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
                 .thenReturn(storedProcedureQuery);
         when(storedProcedureQuery.execute()).thenReturn(true);
-        when(storedProcedureQuery.getResultList()).thenReturn(Arrays.asList());
+        when(storedProcedureQuery.getResultList()).thenReturn(resultadosVacios);
 
         // Act
         List<Empleado> resultado = service.obtenerTodos();
@@ -199,6 +202,9 @@ class EmpleadoServiceTest {
                 BigDecimal.valueOf(50000.0)
         };
 
+        List<Object[]> resultados = new ArrayList<>();
+        resultados.add(fila);
+
         when(entityManager.createStoredProcedureQuery("SP_OBTENER_EMPLEADO"))
                 .thenReturn(storedProcedureQuery);
         when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
@@ -207,7 +213,7 @@ class EmpleadoServiceTest {
                 .thenReturn(storedProcedureQuery);
         when(storedProcedureQuery.execute()).thenReturn(true);
         when(storedProcedureQuery.getResultList())
-                .thenReturn(Arrays.asList(fila));
+                .thenReturn(resultados);
 
         // Act
         Empleado resultado = service.obtener(1L);
@@ -222,6 +228,8 @@ class EmpleadoServiceTest {
     @DisplayName("Obtener empleado inexistente lanza EmpleadoNoEncontrado")
     void testObtenerPorIdNoExiste() {
         // Arrange
+        List<Object[]> resultadosVacios = new ArrayList<>();
+
         when(entityManager.createStoredProcedureQuery("SP_OBTENER_EMPLEADO"))
                 .thenReturn(storedProcedureQuery);
         when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
@@ -229,7 +237,7 @@ class EmpleadoServiceTest {
         when(storedProcedureQuery.setParameter(anyString(), any()))
                 .thenReturn(storedProcedureQuery);
         when(storedProcedureQuery.execute()).thenReturn(true);
-        when(storedProcedureQuery.getResultList()).thenReturn(Arrays.asList());
+        when(storedProcedureQuery.getResultList()).thenReturn(resultadosVacios);
 
         // Act & Assert
         assertThrows(EmpleadoNoEncontrado.class, () -> service.obtener(999L));
