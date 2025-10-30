@@ -15,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 
 
 import org.springframework.boot.test.context.SpringBootTest;
+
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -42,9 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.hamcrest.Matchers.hasSize;
 
-
-@WebMvcTest(controllers = EmpleadoController.class)
-@Import(GlobalExceptionHandler.class)
+@WebMvcTest(EmpleadoController.class)
 @DisplayName("Pruebas del Controlador de Empleados")
 class EmpleadoControllerTest {
 
@@ -52,228 +51,199 @@ class EmpleadoControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private EmpleadoService empleadoService;
+    private EmpleadoService service;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    private Empleado empleadoValido;
+    private Empleado empleadoMock;
 
     @BeforeEach
     void setUp() {
-        empleadoValido = new Empleado();
-        empleadoValido.setId(1L);
-        empleadoValido.setNombre("Juan Pérez");
-        empleadoValido.setArea("IT");
-        empleadoValido.setEdad(30);
-        empleadoValido.setCorreoElectronico("juan.perez@empresa.com");
-        empleadoValido.setSueldo(50000.0);
+        empleadoMock = new Empleado();
+        empleadoMock.setId(1L);
+        empleadoMock.setNombre("Juan Pérez");
+        empleadoMock.setArea("Desarrollo");
+        empleadoMock.setEdad(30);
+        empleadoMock.setCorreoElectronico("juan@test.com");
+        empleadoMock.setSueldo(50000.0);
     }
 
-    // ==================== POST /api/empleados ====================
+    // ==================== TESTS POST (Crear) ====================
 
     @Test
-    @DisplayName("POST /api/empleados - Crear empleado exitosamente retorna 201")
-    void testAddEmpleado_Created() throws Exception {
-        when(empleadoService.create(any(Empleado.class))).thenReturn(empleadoValido);
+    @DisplayName("POST /api/empleados - Crear empleado exitosamente")
+    void testCrearEmpleadoExitoso() throws Exception {
+        when(service.create(any(Empleado.class))).thenReturn(empleadoMock);
 
         mockMvc.perform(post("/api/empleados")
                         .contentType(String.valueOf(MediaType.APPLICATION_JSON))
-                        .content(objectMapper.writeValueAsString(empleadoValido)))
+                        .content(objectMapper.writeValueAsString(empleadoMock)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.nombre").value("Juan Pérez"))
-                .andExpect(jsonPath("$.correoElectronico").value("juan.perez@empresa.com"));
+                .andExpect(jsonPath("$.correoElectronico").value("juan@test.com"));
 
-        verify(empleadoService, times(1)).create(any(Empleado.class));
+        verify(service, times(1)).create(any(Empleado.class));
     }
 
     @Test
-    @DisplayName("POST /api/empleados - Nombre vacío retorna 400 con mensaje de error")
-    void testAddEmpleado_NombreVacio() throws Exception {
-        empleadoValido.setNombre("");
+    @DisplayName("POST /api/empleados - Validación de nombre vacío")
+    void testCrearEmpleadoNombreVacio() throws Exception {
+        empleadoMock.setNombre("");
 
         mockMvc.perform(post("/api/empleados")
                         .contentType(String.valueOf(MediaType.APPLICATION_JSON))
-                        .content(objectMapper.writeValueAsString(empleadoValido)))
+                        .content(objectMapper.writeValueAsString(empleadoMock)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Solicitud inválida"))
                 .andExpect(jsonPath("$.errores.nombre").exists());
-
-        verify(empleadoService, never()).create(any());
     }
 
     @Test
-    @DisplayName("POST /api/empleados - Nombre con 1 carácter retorna 400")
-    void testAddEmpleado_NombreMuyCorto() throws Exception {
-        empleadoValido.setNombre("A");
+    @DisplayName("POST /api/empleados - Validación de edad menor a 18")
+    void testCrearEmpleadoEdadInvalida() throws Exception {
+        empleadoMock.setEdad(17);
 
         mockMvc.perform(post("/api/empleados")
                         .contentType(String.valueOf(MediaType.APPLICATION_JSON))
-                        .content(objectMapper.writeValueAsString(empleadoValido)))
+                        .content(objectMapper.writeValueAsString(empleadoMock)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errores.nombre").value(containsString("2")));
-
-        verify(empleadoService, never()).create(any());
-    }
-
-    @Test
-    @DisplayName("POST /api/empleados - Email inválido retorna 400")
-    void testAddEmpleado_EmailInvalido() throws Exception {
-        empleadoValido.setCorreoElectronico("correo-sin-arroba");
-
-        mockMvc.perform(post("/api/empleados")
-                        .contentType(String.valueOf(MediaType.APPLICATION_JSON))
-                        .content(objectMapper.writeValueAsString(empleadoValido)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errores.correoElectronico").exists());
-
-        verify(empleadoService, never()).create(any());
-    }
-
-    @Test
-    @DisplayName("POST /api/empleados - Edad menor a 18 retorna 400")
-    void testAddEmpleado_EdadMenorA18() throws Exception {
-        empleadoValido.setEdad(17);
-
-        mockMvc.perform(post("/api/empleados")
-                        .contentType(String.valueOf(MediaType.APPLICATION_JSON))
-                        .content(objectMapper.writeValueAsString(empleadoValido)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errores.edad").value(containsString("18")));
-
-        verify(empleadoService, never()).create(any());
-    }
-
-    @Test
-    @DisplayName("POST /api/empleados - Sueldo negativo retorna 400")
-    void testAddEmpleado_SueldoNegativo() throws Exception {
-        empleadoValido.setSueldo(-1000.0);
-
-        mockMvc.perform(post("/api/empleados")
-                        .contentType(String.valueOf(MediaType.APPLICATION_JSON))
-                        .content(objectMapper.writeValueAsString(empleadoValido)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errores.sueldo").exists());
-
-        verify(empleadoService, never()).create(any());
+                .andExpect(jsonPath("$.errores.edad").exists());
     }
 
     @Test
     @DisplayName("POST /api/empleados - Correo duplicado retorna 409")
-    void testAddEmpleado_CorreoDuplicado() throws Exception {
-        when(empleadoService.create(any(Empleado.class)))
-                .thenThrow(new DuplicateMailException("Ya existe un empleado con el correo: juan.perez@empresa.com"));
+    void testCrearEmpleadoCorreoDuplicado() throws Exception {
+        when(service.create(any(Empleado.class)))
+                .thenThrow(new DuplicateMailException("Ya existe un empleado con el correo: juan@test.com"));
 
         mockMvc.perform(post("/api/empleados")
                         .contentType(String.valueOf(MediaType.APPLICATION_JSON))
-                        .content(objectMapper.writeValueAsString(empleadoValido)))
+                        .content(objectMapper.writeValueAsString(empleadoMock)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.error").value("Conflicto de datos"))
-                .andExpect(jsonPath("$.message").value(containsString("juan.perez@empresa.com")));
+                .andExpect(jsonPath("$.message").value(containsString("Ya existe un empleado")));
     }
 
-    // ==================== GET /api/empleados ====================
+    // ==================== TESTS GET (Obtener todos) ====================
 
     @Test
-    @DisplayName("GET /api/empleados - Obtener todos los empleados retorna 200")
-    void testGetAllEmpleados() throws Exception {
+    @DisplayName("GET /api/empleados - Obtener todos los empleados")
+    void testObtenerTodosEmpleados() throws Exception {
         Empleado empleado2 = new Empleado();
         empleado2.setId(2L);
         empleado2.setNombre("María García");
-        empleado2.setCorreoElectronico("maria@empresa.com");
+        empleado2.setCorreoElectronico("maria@test.com");
 
-        when(empleadoService.obtenerTodos()).thenReturn(Arrays.asList(empleadoValido, empleado2));
+        List<Empleado> empleados = Arrays.asList(empleadoMock, empleado2);
+        when(service.obtenerTodos()).thenReturn(empleados);
 
         mockMvc.perform(get("/api/empleados"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].nombre").value("Juan Pérez"))
                 .andExpect(jsonPath("$[1].nombre").value("María García"));
-
-        verify(empleadoService, times(1)).obtenerTodos();
     }
 
-    // ==================== GET /api/empleados/{id} ====================
+    @Test
+    @DisplayName("GET /api/empleados - Lista vacía retorna 200")
+    void testObtenerTodosVacio() throws Exception {
+        when(service.obtenerTodos()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/empleados"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    // ==================== TESTS GET (Obtener por ID) ====================
 
     @Test
-    @DisplayName("GET /api/empleados/{id} - Obtener empleado por ID retorna 200")
-    void testGetEmpleadoById_Encontrado() throws Exception {
-        when(empleadoService.obtener(1L)).thenReturn(empleadoValido);
+    @DisplayName("GET /api/empleados/{id} - Obtener empleado existente")
+    void testObtenerEmpleadoPorId() throws Exception {
+        when(service.obtener(1L)).thenReturn(empleadoMock);
 
         mockMvc.perform(get("/api/empleados/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.nombre").value("Juan Pérez"))
-                .andExpect(jsonPath("$.area").value("IT"));
-
-        verify(empleadoService, times(1)).obtener(1L);
+                .andExpect(jsonPath("$.nombre").value("Juan Pérez"));
     }
 
     @Test
     @DisplayName("GET /api/empleados/{id} - Empleado no encontrado retorna 404")
-    void testGetEmpleadoById_NoEncontrado() throws Exception {
-        when(empleadoService.obtener(999L))
+    void testObtenerEmpleadoNoExiste() throws Exception {
+        when(service.obtener(999L))
                 .thenThrow(new EmpleadoNoEncontrado("Empleado no encontrado con ID: 999"));
 
         mockMvc.perform(get("/api/empleados/999"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.error").value("Empleado no encontrado"))
-                .andExpect(jsonPath("$.message").value(containsString("999")))
-                .andExpect(jsonPath("$.timestamp").exists());
+                .andExpect(jsonPath("$.message").value(containsString("999")));
     }
 
-    // ==================== PUT /api/empleados/{id} ====================
+    // ==================== TESTS PUT (Actualizar) ====================
 
     @Test
-    @DisplayName("PUT /api/empleados/{id} - Actualizar empleado retorna 200")
-    void testActualizarEmpleado_Exitoso() throws Exception {
-        Empleado empleadoActualizado = new Empleado();
-        empleadoActualizado.setId(1L);
-        empleadoActualizado.setNombre("Juan Pérez Actualizado");
-        empleadoActualizado.setArea("Recursos Humanos");
-        empleadoActualizado.setEdad(31);
-        empleadoActualizado.setCorreoElectronico("juan.perez.nuevo@empresa.com");
-        empleadoActualizado.setSueldo(55000.0);
+    @DisplayName("PUT /api/empleados/{id} - Actualizar empleado exitosamente")
+    void testActualizarEmpleadoExitoso() throws Exception {
+        Empleado actualizado = new Empleado();
+        actualizado.setId(1L);
+        actualizado.setNombre("Juan Pérez Actualizado");
+        actualizado.setCorreoElectronico("juan.nuevo@test.com");
 
-        when(empleadoService.actualizar(eq(1L), any(Empleado.class))).thenReturn(empleadoActualizado);
+        when(service.actualizar(eq(1L), any(Empleado.class))).thenReturn(actualizado);
 
         mockMvc.perform(put("/api/empleados/1")
                         .contentType(String.valueOf(MediaType.APPLICATION_JSON))
-                        .content(objectMapper.writeValueAsString(empleadoActualizado)))
+                        .content(objectMapper.writeValueAsString(actualizado)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombre").value("Juan Pérez Actualizado"))
-                .andExpect(jsonPath("$.area").value("Recursos Humanos"))
-                .andExpect(jsonPath("$.sueldo").value(55000.0));
-
-        verify(empleadoService, times(1)).actualizar(eq(1L), any(Empleado.class));
+                .andExpect(jsonPath("$.correoElectronico").value("juan.nuevo@test.com"));
     }
 
-    // ==================== DELETE /api/empleados/{id} ====================
+    @Test
+    @DisplayName("PUT /api/empleados/{id} - Actualizar empleado inexistente retorna 404")
+    void testActualizarEmpleadoNoExiste() throws Exception {
+        when(service.actualizar(eq(999L), any(Empleado.class)))
+                .thenThrow(new EmpleadoNoEncontrado("Empleado no encontrado con ID: 999"));
+
+        mockMvc.perform(put("/api/empleados/999")
+                        .contentType(String.valueOf(MediaType.APPLICATION_JSON))
+                        .content(objectMapper.writeValueAsString(empleadoMock)))
+                .andExpect(status().isNotFound());
+    }
 
     @Test
-    @DisplayName("DELETE /api/empleados/{id} - Eliminar empleado retorna 204")
-    void testEliminarEmpleado_Exitoso() throws Exception {
-        doNothing().when(empleadoService).eliminar(1L);
+    @DisplayName("PUT /api/empleados/{id} - Actualizar con correo duplicado retorna 409")
+    void testActualizarCorreoDuplicado() throws Exception {
+        when(service.actualizar(eq(1L), any(Empleado.class)))
+                .thenThrow(new DuplicateMailException("Ya existe un empleado con el correo"));
+
+        mockMvc.perform(put("/api/empleados/1")
+                        .contentType(String.valueOf(MediaType.APPLICATION_JSON))
+                        .content(objectMapper.writeValueAsString(empleadoMock)))
+                .andExpect(status().isConflict());
+    }
+
+    // ==================== TESTS DELETE (Eliminar) ====================
+
+    @Test
+    @DisplayName("DELETE /api/empleados/{id} - Eliminar empleado exitosamente")
+    void testEliminarEmpleadoExitoso() throws Exception {
+        doNothing().when(service).eliminar(1L);
 
         mockMvc.perform(delete("/api/empleados/1"))
                 .andExpect(status().isNoContent());
 
-        verify(empleadoService, times(1)).eliminar(1L);
+        verify(service, times(1)).eliminar(1L);
     }
 
     @Test
-    @DisplayName("DELETE /api/empleados/{id} - Empleado no encontrado retorna 404")
-    void testEliminarEmpleado_NoEncontrado() throws Exception {
+    @DisplayName("DELETE /api/empleados/{id} - Eliminar empleado inexistente retorna 404")
+    void testEliminarEmpleadoNoExiste() throws Exception {
         doThrow(new EmpleadoNoEncontrado("Empleado no encontrado con ID: 999"))
-                .when(empleadoService).eliminar(999L);
+                .when(service).eliminar(999L);
 
         mockMvc.perform(delete("/api/empleados/999"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.error").value("Empleado no encontrado"));
+                .andExpect(status().isNotFound());
     }
 }

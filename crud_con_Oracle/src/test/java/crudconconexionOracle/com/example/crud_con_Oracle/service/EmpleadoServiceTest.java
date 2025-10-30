@@ -5,6 +5,8 @@ import crudconconexionOracle.com.example.crud_con_Oracle.manejoExepciones.Duplic
 import crudconconexionOracle.com.example.crud_con_Oracle.manejoExepciones.EmpleadoNoEncontrado;
 import crudconconexionOracle.com.example.crud_con_Oracle.modelo.Empleado;
 import crudconconexionOracle.com.example.crud_con_Oracle.repository.EmpleadoRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.StoredProcedureQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -24,227 +27,348 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
-@SpringBootTest
+
 @ExtendWith(MockitoExtension.class)
-@DisplayName("Pruebas del Servicio de Empleados")
+@DisplayName("Pruebas del Servicio de Empleados con SPs")
 class EmpleadoServiceTest {
 
     @Mock
-    private EmpleadoRepository empleadoRepository;
+    private EntityManager entityManager;
+
+    @Mock
+    private StoredProcedureQuery storedProcedureQuery;
 
     @InjectMocks
-    private EmpleadoService empleadoService;
+    private EmpleadoService service;
 
-    private Empleado empleadoEjemplo;
+    private Empleado empleadoMock;
 
     @BeforeEach
     void setUp() {
-        empleadoEjemplo = new Empleado();
-        empleadoEjemplo.setId(1L);
-        empleadoEjemplo.setNombre("Juan Pérez");
-        empleadoEjemplo.setArea("IT");
-        empleadoEjemplo.setEdad(30);
-        empleadoEjemplo.setCorreoElectronico("juan.perez@empresa.com");
-        empleadoEjemplo.setSueldo(50000.0);
+        empleadoMock = new Empleado();
+        empleadoMock.setId(1L);
+        empleadoMock.setNombre("Juan Pérez");
+        empleadoMock.setArea("Desarrollo");
+        empleadoMock.setEdad(30);
+        empleadoMock.setCorreoElectronico("juan@test.com");
+        empleadoMock.setSueldo(50000.0);
     }
+
+    // ==================== TESTS CREAR ====================
 
     @Test
     @DisplayName("Crear empleado exitosamente")
     void testCrearEmpleadoExitoso() {
-        // Arrange: configurar el escenario
-        when(empleadoRepository.existsByCorreoElectronico(empleadoEjemplo.getCorreoElectronico()))
-                .thenReturn(false);
-        when(empleadoRepository.save(any(Empleado.class)))
-                .thenReturn(empleadoEjemplo);
+        // Arrange
+        when(entityManager.createStoredProcedureQuery("SP_CREAR_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getOutputParameterValue("p_id"))
+                .thenReturn(BigDecimal.valueOf(1L));
+        when(storedProcedureQuery.getOutputParameterValue("p_mensaje"))
+                .thenReturn("Empleado creado exitosamente");
 
-        // Act: ejecutar el método a probar
-        Empleado resultado = empleadoService.create(empleadoEjemplo);
+        // Act
+        Empleado resultado = service.create(empleadoMock);
 
-        // Assert: verificar resultados
+        // Assert
         assertNotNull(resultado);
-        assertEquals("Juan Pérez", resultado.getNombre());
-        verify(empleadoRepository, times(1)).existsByCorreoElectronico(empleadoEjemplo.getCorreoElectronico());
-        verify(empleadoRepository, times(1)).save(empleadoEjemplo);
+        assertEquals(1L, resultado.getId());
+        verify(entityManager).createStoredProcedureQuery("SP_CREAR_EMPLEADO");
+        verify(storedProcedureQuery).execute();
     }
 
     @Test
     @DisplayName("Crear empleado con correo duplicado lanza excepción")
     void testCrearEmpleadoCorreoDuplicado() {
         // Arrange
-        when(empleadoRepository.existsByCorreoElectronico(empleadoEjemplo.getCorreoElectronico()))
-                .thenReturn(true);
+        when(entityManager.createStoredProcedureQuery("SP_CREAR_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getOutputParameterValue("p_id"))
+                .thenReturn(BigDecimal.valueOf(-1L));
+        when(storedProcedureQuery.getOutputParameterValue("p_mensaje"))
+                .thenReturn("Ya existe un empleado con el correo: juan@test.com");
 
         // Act & Assert
-        DuplicateMailException exception = assertThrows(
-                DuplicateMailException.class,
-                () -> empleadoService.create(empleadoEjemplo)
-        );
-
-        assertTrue(exception.getMessage().contains("juan.perez@empresa.com"));
-        verify(empleadoRepository, never()).save(any());
+        assertThrows(DuplicateMailException.class, () -> service.create(empleadoMock));
     }
 
     @Test
-    @DisplayName("Obtener todos los empleados")
-    void testObtenerTodosLosEmpleados() {
+    @DisplayName("Crear empleado con error de BD lanza DatabaseException")
+    void testCrearEmpleadoErrorBD() {
         // Arrange
-        Empleado empleado2 = new Empleado();
-        empleado2.setId(2L);
-        empleado2.setNombre("María García");
-        empleado2.setCorreoElectronico("maria@empresa.com");
+        when(entityManager.createStoredProcedureQuery("SP_CREAR_EMPLEADO"))
+                .thenThrow(new RuntimeException("Error de conexión"));
 
-        List<Empleado> listaEmpleados = Arrays.asList(empleadoEjemplo, empleado2);
-        when(empleadoRepository.findAll()).thenReturn(listaEmpleados);
+        // Act & Assert
+        assertThrows(DatabaseException.class, () -> service.create(empleadoMock));
+    }
+
+    // ==================== TESTS OBTENER TODOS ====================
+
+    @Test
+    @DisplayName("Obtener todos los empleados exitosamente")
+    void testObtenerTodosExitoso() {
+        // Arrange
+        Object[] fila1 = {
+                BigDecimal.valueOf(1L),
+                "Juan Pérez",
+                "Desarrollo",
+                BigDecimal.valueOf(30),
+                "juan@test.com",
+                BigDecimal.valueOf(50000.0)
+        };
+        Object[] fila2 = {
+                BigDecimal.valueOf(2L),
+                "María García",
+                "Marketing",
+                BigDecimal.valueOf(28),
+                "maria@test.com",
+                BigDecimal.valueOf(45000.0)
+        };
+
+        when(entityManager.createStoredProcedureQuery("SP_OBTENER_TODOS_EMPLEADOS"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getResultList())
+                .thenReturn(Arrays.asList(fila1, fila2));
 
         // Act
-        List<Empleado> resultado = empleadoService.obtenerTodos();
+        List<Empleado> resultado = service.obtenerTodos();
 
         // Assert
+        assertNotNull(resultado);
         assertEquals(2, resultado.size());
         assertEquals("Juan Pérez", resultado.get(0).getNombre());
         assertEquals("María García", resultado.get(1).getNombre());
-        verify(empleadoRepository, times(1)).findAll();
     }
 
     @Test
-    @DisplayName("Obtener todos lanza DatabaseException en caso de error")
-    void testObtenerTodosConError() {
+    @DisplayName("Obtener todos sin empleados retorna lista vacía")
+    void testObtenerTodosVacio() {
         // Arrange
-        when(empleadoRepository.findAll()).thenThrow(new RuntimeException("Error de BD"));
+        when(entityManager.createStoredProcedureQuery("SP_OBTENER_TODOS_EMPLEADOS"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getResultList()).thenReturn(Arrays.asList());
+
+        // Act
+        List<Empleado> resultado = service.obtenerTodos();
+
+        // Assert
+        assertNotNull(resultado);
+        assertTrue(resultado.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Obtener todos con error de BD lanza DatabaseException")
+    void testObtenerTodosErrorBD() {
+        // Arrange
+        when(entityManager.createStoredProcedureQuery("SP_OBTENER_TODOS_EMPLEADOS"))
+                .thenThrow(new RuntimeException("Error de conexión"));
 
         // Act & Assert
-        assertThrows(DatabaseException.class, () -> empleadoService.obtenerTodos());
+        assertThrows(DatabaseException.class, () -> service.obtenerTodos());
     }
+
+    // ==================== TESTS OBTENER POR ID ====================
 
     @Test
     @DisplayName("Obtener empleado por ID exitosamente")
-    void testObtenerEmpleadoPorId() {
+    void testObtenerPorIdExitoso() {
         // Arrange
-        when(empleadoRepository.findById(1L)).thenReturn(Optional.of(empleadoEjemplo));
+        Object[] fila = {
+                BigDecimal.valueOf(1L),
+                "Juan Pérez",
+                "Desarrollo",
+                BigDecimal.valueOf(30),
+                "juan@test.com",
+                BigDecimal.valueOf(50000.0)
+        };
+
+        when(entityManager.createStoredProcedureQuery("SP_OBTENER_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getResultList())
+                .thenReturn(Arrays.asList(fila));
 
         // Act
-        Empleado resultado = empleadoService.obtener(1L);
+        Empleado resultado = service.obtener(1L);
 
         // Assert
         assertNotNull(resultado);
         assertEquals(1L, resultado.getId());
         assertEquals("Juan Pérez", resultado.getNombre());
-        verify(empleadoRepository, times(1)).findById(1L);
     }
 
     @Test
-    @DisplayName("Obtener empleado por ID no encontrado lanza excepción")
-    void testObtenerEmpleadoNoEncontrado() {
+    @DisplayName("Obtener empleado inexistente lanza EmpleadoNoEncontrado")
+    void testObtenerPorIdNoExiste() {
         // Arrange
-        when(empleadoRepository.findById(999L)).thenReturn(Optional.empty());
+        when(entityManager.createStoredProcedureQuery("SP_OBTENER_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getResultList()).thenReturn(Arrays.asList());
 
         // Act & Assert
-        EmpleadoNoEncontrado exception = assertThrows(
-                EmpleadoNoEncontrado.class,
-                () -> empleadoService.obtener(999L)
-        );
-
-        assertTrue(exception.getMessage().contains("999"));
+        assertThrows(EmpleadoNoEncontrado.class, () -> service.obtener(999L));
     }
+
+    // ==================== TESTS ACTUALIZAR ====================
 
     @Test
     @DisplayName("Actualizar empleado exitosamente")
-    void testActualizarEmpleado() {
+    void testActualizarEmpleadoExitoso() {
         // Arrange
-        Empleado empleadoActualizado = new Empleado();
-        empleadoActualizado.setNombre("Juan Pérez Actualizado");
-        empleadoActualizado.setArea("Recursos Humanos");
-        empleadoActualizado.setEdad(31);
-        empleadoActualizado.setCorreoElectronico("juan.perez@empresa.com");
-        empleadoActualizado.setSueldo(55000.0);
+        Empleado actualizado = new Empleado();
+        actualizado.setNombre("Juan Pérez Actualizado");
+        actualizado.setArea("DevOps");
+        actualizado.setEdad(31);
+        actualizado.setCorreoElectronico("juan.perez@test.com");
+        actualizado.setSueldo(55000.0);
 
-        when(empleadoRepository.findById(1L)).thenReturn(Optional.of(empleadoEjemplo));
-        when(empleadoRepository.save(any(Empleado.class))).thenReturn(empleadoEjemplo);
+        when(entityManager.createStoredProcedureQuery("SP_ACTUALIZAR_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getOutputParameterValue("p_filas_afectadas"))
+                .thenReturn(1);
+        when(storedProcedureQuery.getOutputParameterValue("p_mensaje"))
+                .thenReturn("Empleado actualizado exitosamente");
 
         // Act
-        Empleado resultado = empleadoService.actualizar(1L, empleadoActualizado);
+        Empleado resultado = service.actualizar(1L, actualizado);
 
         // Assert
         assertNotNull(resultado);
-        verify(empleadoRepository, times(1)).findById(1L);
-        verify(empleadoRepository, times(1)).save(empleadoEjemplo);
+        assertEquals(1L, resultado.getId());
+        assertEquals("Juan Pérez Actualizado", resultado.getNombre());
     }
 
     @Test
-    @DisplayName("Actualizar empleado con correo duplicado lanza excepción")
-    void testActualizarEmpleadoCorreoDuplicado() {
+    @DisplayName("Actualizar empleado inexistente lanza EmpleadoNoEncontrado")
+    void testActualizarEmpleadoNoExiste() {
         // Arrange
-        Empleado empleadoActualizado = new Empleado();
-        empleadoActualizado.setCorreoElectronico("otro@empresa.com");
-
-        when(empleadoRepository.findById(1L)).thenReturn(Optional.of(empleadoEjemplo));
-        when(empleadoRepository.existsByCorreoElectronico("otro@empresa.com")).thenReturn(true);
+        when(entityManager.createStoredProcedureQuery("SP_ACTUALIZAR_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getOutputParameterValue("p_filas_afectadas"))
+                .thenReturn(0);
+        when(storedProcedureQuery.getOutputParameterValue("p_mensaje"))
+                .thenReturn("Empleado no encontrado con ID: 999");
 
         // Act & Assert
-        assertThrows(DuplicateMailException.class,
-                () -> empleadoService.actualizar(1L, empleadoActualizado));
-        verify(empleadoRepository, never()).save(any());
+        assertThrows(EmpleadoNoEncontrado.class, () -> service.actualizar(999L, empleadoMock));
     }
 
     @Test
-    @DisplayName("Actualizar empleado no encontrado lanza excepción")
-    void testActualizarEmpleadoNoEncontrado() {
+    @DisplayName("Actualizar con correo duplicado lanza DuplicateMailException")
+    void testActualizarCorreoDuplicado() {
         // Arrange
-        when(empleadoRepository.findById(999L)).thenReturn(Optional.empty());
+        when(entityManager.createStoredProcedureQuery("SP_ACTUALIZAR_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getOutputParameterValue("p_filas_afectadas"))
+                .thenReturn(-1);
+        when(storedProcedureQuery.getOutputParameterValue("p_mensaje"))
+                .thenReturn("Ya existe un empleado con el correo: juan@test.com");
 
         // Act & Assert
-        assertThrows(EmpleadoNoEncontrado.class,
-                () -> empleadoService.actualizar(999L, empleadoEjemplo));
+        assertThrows(DuplicateMailException.class, () -> service.actualizar(1L, empleadoMock));
     }
 
-    @Test
-    @DisplayName("Actualizar lanza DatabaseException en caso de error al guardar")
-    void testActualizarConErrorDeBaseDatos() {
-        // Arrange
-        when(empleadoRepository.findById(1L)).thenReturn(Optional.of(empleadoEjemplo));
-        when(empleadoRepository.save(any())).thenThrow(new RuntimeException("Error de BD"));
-
-        // Act & Assert
-        assertThrows(DatabaseException.class,
-                () -> empleadoService.actualizar(1L, empleadoEjemplo));
-    }
+    // ==================== TESTS ELIMINAR ====================
 
     @Test
     @DisplayName("Eliminar empleado exitosamente")
-    void testEliminarEmpleado() {
+    void testEliminarEmpleadoExitoso() {
         // Arrange
-        when(empleadoRepository.existsById(1L)).thenReturn(true);
-        doNothing().when(empleadoRepository).deleteById(1L);
+        when(entityManager.createStoredProcedureQuery("SP_ELIMINAR_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getOutputParameterValue("p_filas_afectadas"))
+                .thenReturn(1);
+        when(storedProcedureQuery.getOutputParameterValue("p_mensaje"))
+                .thenReturn("Empleado eliminado exitosamente");
 
-        // Act
-        empleadoService.eliminar(1L);
-
-        // Assert
-        verify(empleadoRepository, times(1)).existsById(1L);
-        verify(empleadoRepository, times(1)).deleteById(1L);
+        // Act & Assert
+        assertDoesNotThrow(() -> service.eliminar(1L));
+        verify(storedProcedureQuery).execute();
     }
 
     @Test
-    @DisplayName("Eliminar empleado no encontrado lanza excepción")
-    void testEliminarEmpleadoNoEncontrado() {
+    @DisplayName("Eliminar empleado inexistente lanza EmpleadoNoEncontrado")
+    void testEliminarEmpleadoNoExiste() {
         // Arrange
-        when(empleadoRepository.existsById(999L)).thenReturn(false);
+        when(entityManager.createStoredProcedureQuery("SP_ELIMINAR_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getOutputParameterValue("p_filas_afectadas"))
+                .thenReturn(0);
+        when(storedProcedureQuery.getOutputParameterValue("p_mensaje"))
+                .thenReturn("Empleado no encontrado con ID: 999");
 
         // Act & Assert
-        assertThrows(EmpleadoNoEncontrado.class,
-                () -> empleadoService.eliminar(999L));
-        verify(empleadoRepository, never()).deleteById(any());
+        assertThrows(EmpleadoNoEncontrado.class, () -> service.eliminar(999L));
     }
 
     @Test
-    @DisplayName("Eliminar lanza DatabaseException en caso de error")
-    void testEliminarConErrorDeBaseDatos() {
+    @DisplayName("Eliminar con error de BD lanza DatabaseException")
+    void testEliminarErrorBD() {
         // Arrange
-        when(empleadoRepository.existsById(1L)).thenReturn(true);
-        doThrow(new RuntimeException("Error de BD")).when(empleadoRepository).deleteById(1L);
+        when(entityManager.createStoredProcedureQuery("SP_ELIMINAR_EMPLEADO"))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.registerStoredProcedureParameter(anyString(), any(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.setParameter(anyString(), any()))
+                .thenReturn(storedProcedureQuery);
+        when(storedProcedureQuery.execute()).thenReturn(true);
+        when(storedProcedureQuery.getOutputParameterValue("p_filas_afectadas"))
+                .thenReturn(-1);
+        when(storedProcedureQuery.getOutputParameterValue("p_mensaje"))
+                .thenReturn("Error al eliminar empleado");
 
         // Act & Assert
-        assertThrows(DatabaseException.class,
-                () -> empleadoService.eliminar(1L));
+        assertThrows(DatabaseException.class, () -> service.eliminar(1L));
     }
 }
