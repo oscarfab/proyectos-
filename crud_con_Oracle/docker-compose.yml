@@ -1,33 +1,52 @@
 version: '3.8'
 
 services:
+  # ==================== ORACLE DATABASE ====================
   oracle-db:
     image: gvenzl/oracle-xe:21-slim
-    container_name: oracle-jenkins
+    container_name: oracle-db
+    restart: unless-stopped
     ports:
       - "1521:1521"
     environment:
       - ORACLE_PASSWORD=oracle
     volumes:
+      # ✅ VOLUMEN PERSISTENTE: Los datos NO se borran
       - oracle-data:/opt/oracle/oradata
+    networks:
+      - crud-network
     healthcheck:
-      test: ["CMD", "healthcheck.sh"]
+      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -s system/oracle@XEPDB1 | grep -q 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 60s
 
+  # ==================== APLICACIÓN CRUD ====================
   crud-app:
-    image: crud-app:latest
+    image: crud-oracle-app:latest
     container_name: crud-oracle-container
+    restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "8088:8088"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:oracle:thin:@oracle-db:1521:XE
+      - SPRING_DATASOURCE_URL=jdbc:oracle:thin:@oracle-db:1521/XEPDB1
       - SPRING_DATASOURCE_USERNAME=system
       - SPRING_DATASOURCE_PASSWORD=oracle
+      # ✅ validate = solo verifica que existan las tablas, NO las modifica
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+    networks:
+      - crud-network
     depends_on:
       oracle-db:
         condition: service_healthy
 
+# ==================== REDES ====================
+networks:
+  crud-network:
+    driver: bridge
+
+# ==================== VOLÚMENES PERSISTENTES ====================
 volumes:
   oracle-data:
+    driver: local

@@ -55,7 +55,7 @@ public class EmpleadoController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Actualizar empleado")
+    @Operation(summary = "Actualizar el empleado")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Empleado actualizado"),
             @ApiResponse(responseCode = "404", description = "Empleado no encontrado")

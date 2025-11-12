@@ -5,12 +5,8 @@ pipeline {
         APP_NAME         = 'crud-oracle-app'
         DOCKER_IMAGE     = "${APP_NAME}:latest"
         PROJECT_PATH     = 'crud_con_Oracle'
-        CONTAINER_NAME   = 'crud-oracle-container'
-        ORACLE_CONTAINER = 'oracle-db'
-        APP_PORT         = '8088'
         GIT_REPO         = 'https://github.com/oscarfab/proyectos-.git'
         GIT_BRANCH       = 'main'
-        NETWORK_NAME     = 'jenkins-net'
     }
 
     tools {
@@ -35,14 +31,14 @@ pipeline {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
-                        echo '🧪 Ejecutando pruebas con H2 (sin Oracle)...'
+                        echo '🧪 Ejecutando pruebas unitarias con H2...'
                         bat 'mvn clean verify'
                     }
                 }
             }
             post {
                 always {
-                    echo '📊 Publicando resultados de pruebas unitarias...'
+                    echo '📊 Publicando resultados de pruebas...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                     jacoco(
                         execPattern: '**/target/jacoco.exec',
@@ -55,77 +51,60 @@ pipeline {
             }
         }
 
-        stage('Crear red Docker') {
-            steps {
-                script {
-                    echo '🌐 Creando red Docker compartida...'
-                    bat "docker network create ${NETWORK_NAME} || exit 0"
-                }
-            }
-        }
-
-        stage('Iniciar Oracle XE') {
-            steps {
-                script {
-                    echo '🗃️ Iniciando contenedor de Oracle XE...'
-                    bat "docker stop ${ORACLE_CONTAINER} || exit 0"
-                    bat "docker rm ${ORACLE_CONTAINER} || exit 0"
-                    bat """docker run -d ^
---name ${ORACLE_CONTAINER} ^
---network ${NETWORK_NAME} ^
--p 1521:1521 ^
--e ORACLE_PASSWORD=oracle ^
-gvenzl/oracle-xe:21-slim"""
-                }
-            }
-        }
-
-        stage('Esperar Oracle') {
-            steps {
-                script {
-                    echo '⏳ Esperando a que Oracle esté listo...'
-                    sleep(time: 120, unit: 'SECONDS')
-                    echo '🔍 Verificando estado de Oracle...'
-                    bat "docker logs ${ORACLE_CONTAINER}"
-                    echo '✅ Oracle debería estar listo ahora'
-                }
-            }
-        }
-
         stage('Construir imagen Docker') {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
-                        echo '🏗️ Construyendo imagen Docker de la aplicación...'
+                        echo '🏗️ Construyendo nueva imagen Docker...'
                         bat "docker build -t ${DOCKER_IMAGE} ."
                     }
                 }
             }
         }
 
-        stage('Ejecutar aplicación con Oracle') {
+        stage('Verificar infraestructura') {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
-                        echo '🚀 Desplegando aplicación conectada a Oracle...'
-                        bat "docker stop ${CONTAINER_NAME} || exit 0"
-                        bat "docker rm ${CONTAINER_NAME} || exit 0"
-                        bat """docker run -d ^
---name ${CONTAINER_NAME} ^
---network ${NETWORK_NAME} ^
---restart unless-stopped ^
--p ${APP_PORT}:${APP_PORT} ^
--e SPRING_DATASOURCE_URL=jdbc:oracle:thin:@${ORACLE_CONTAINER}:1521/XEPDB1 ^
--e SPRING_DATASOURCE_USERNAME=system ^
--e SPRING_DATASOURCE_PASSWORD=oracle ^
--e SPRING_JPA_HIBERNATE_DDL_AUTO=update ^
-${DOCKER_IMAGE}"""
+                        echo '🔍 Verificando que Oracle esté corriendo...'
 
-                        echo '⏳ Esperando 30 segundos para que la app inicie...'
+                        // Verificar si Oracle está corriendo
+                        def oracleRunning = bat(
+                            script: 'docker ps --filter name=oracle-db --format "{{.Names}}"',
+                            returnStdout: true
+                        ).trim()
+
+                        if (oracleRunning != 'oracle-db') {
+                            echo '⚠️ Oracle no está corriendo. Iniciando infraestructura...'
+                            bat 'docker-compose up -d oracle-db'
+                            echo '⏳ Esperando 2 minutos a que Oracle esté listo...'
+                            sleep(time: 120, unit: 'SECONDS')
+                        } else {
+                            echo '✅ Oracle ya está corriendo'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Actualizar aplicación') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        echo '🔄 Actualizando contenedor de la aplicación...'
+
+                        // Detener el contenedor actual (si existe)
+                        bat 'docker-compose stop crud-app || exit 0'
+                        bat 'docker-compose rm -f crud-app || exit 0'
+
+                        // Levantar la nueva versión
+                        bat 'docker-compose up -d crud-app'
+
+                        echo '⏳ Esperando 30 segundos a que la app inicie...'
                         sleep(time: 30, unit: 'SECONDS')
 
                         echo '🔍 Logs de la aplicación:'
-                        bat "docker logs ${CONTAINER_NAME}"
+                        bat 'docker logs crud-oracle-container --tail 50'
                     }
                 }
             }
@@ -134,11 +113,14 @@ ${DOCKER_IMAGE}"""
         stage('Verificar despliegue') {
             steps {
                 script {
-                    echo '🌍 Aplicación desplegada'
-                    echo "Swagger: http://localhost:${APP_PORT}/swagger-ui.html"
-                    echo "Health: http://localhost:${APP_PORT}/actuator/health"
-                    bat "docker ps --filter name=${CONTAINER_NAME}"
-                    bat "docker ps --filter name=${ORACLE_CONTAINER}"
+                    dir("${PROJECT_PATH}") {
+                        echo '🌍 Verificando despliegue...'
+                        bat 'docker-compose ps'
+
+                        // Verificar health endpoint
+                        echo '💚 Verificando health endpoint...'
+                        bat 'curl -f http://localhost:8088/actuator/health || exit 0'
+                    }
                 }
             }
         }
@@ -150,22 +132,24 @@ ${DOCKER_IMAGE}"""
         }
         success {
             echo '✅ =========================================='
-            echo '✅ PIPELINE EXITOSO'
+            echo '✅ DESPLIEGUE EXITOSO'
             echo '✅ =========================================='
             echo ''
-            echo "📊 Swagger: http://localhost:${APP_PORT}/swagger-ui.html"
-            echo "💚 Health: http://localhost:${APP_PORT}/actuator/health"
-            echo "📡 API: http://localhost:${APP_PORT}/api/empleados"
+            echo '📊 Swagger: http://localhost:8088/swagger-ui.html'
+            echo '💚 Health: http://localhost:8088/actuator/health'
+            echo '📡 API: http://localhost:8088/api/empleados'
             echo ''
             echo '🗃️ Oracle: localhost:1521 (system/oracle)'
             echo ''
-            echo '⚠️ Para detener:'
-            echo "   docker stop ${CONTAINER_NAME} ${ORACLE_CONTAINER}"
+            echo '📋 Ver logs:'
+            echo '   docker-compose logs -f crud-app'
+            echo ''
+            echo '⚠️ Para detener TODO:'
+            echo '   docker-compose down'
         }
         failure {
             echo '❌ ERROR EN EL PIPELINE'
-            echo "🔍 docker logs ${ORACLE_CONTAINER}"
-            echo "🔍 docker logs ${CONTAINER_NAME}"
+            echo '🔍 Ver logs con: docker-compose logs'
         }
     }
 }
